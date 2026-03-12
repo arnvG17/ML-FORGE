@@ -1,0 +1,72 @@
+import json
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from io import BytesIO
+import base64
+
+try:
+    # === TUNABLE PARAMETERS ===
+    N_ESTIMATORS = 100
+    MAX_DEPTH = 10
+    MIN_SAMPLES_SPLIT = 2
+    TEST_SIZE = 0.2
+    RANDOM_STATE = 42
+
+    from sklearn.datasets import make_classification
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+    # === DATA ===
+    X, y = make_classification(n_samples=500, n_features=10, n_informative=5, random_state=RANDOM_STATE)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE)
+
+    # === MODEL ===
+    model = RandomForestClassifier(n_estimators=N_ESTIMATORS, max_depth=MAX_DEPTH, min_samples_split=MIN_SAMPLES_SPLIT, random_state=RANDOM_STATE)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    # === METRICS ===
+    metrics = {
+        "accuracy": round(accuracy_score(y_test, y_pred), 4),
+        "precision": round(precision_score(y_test, y_pred), 4),
+        "recall": round(recall_score(y_test, y_pred), 4),
+        "f1_score": round(f1_score(y_test, y_pred), 4),
+    }
+
+    # === PLOTS ===
+    fig, ax = plt.subplots(figsize=(8, 5))
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    ax.bar(range(len(importances)), importances[indices], color='white', edgecolor='gray')
+    ax.set_xlabel('Feature Index')
+    ax.set_ylabel('Importance')
+    ax.set_title('Random Forest Feature Importances')
+    ax.set_facecolor('black')
+    fig.patch.set_facecolor('black')
+    ax.tick_params(colors='white')
+    ax.xaxis.label.set_color('white')
+    ax.yaxis.label.set_color('white')
+    ax.title.set_color('white')
+    buf = BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight', facecolor='black')
+    buf.seek(0)
+    plot_b64 = base64.b64encode(buf.read()).decode()
+    plt.close()
+
+    result = {
+        "metrics": metrics,
+        "plots": {"feature_importances": plot_b64},
+        "controls": [
+            {"id": "n_estimators", "type": "slider", "label": "N Estimators", "min": 10, "max": 500, "default": N_ESTIMATORS, "step": 10, "targets_var": "N_ESTIMATORS"},
+            {"id": "max_depth", "type": "slider", "label": "Max Depth", "min": 1, "max": 30, "default": MAX_DEPTH, "step": 1, "targets_var": "MAX_DEPTH"},
+            {"id": "min_samples_split", "type": "slider", "label": "Min Samples Split", "min": 2, "max": 20, "default": MIN_SAMPLES_SPLIT, "step": 1, "targets_var": "MIN_SAMPLES_SPLIT"},
+        ],
+        "errors": [],
+    }
+    print(json.dumps(result))
+
+except Exception as e:
+    print(json.dumps({"metrics": {}, "plots": {}, "controls": [], "errors": [str(e)]}))
