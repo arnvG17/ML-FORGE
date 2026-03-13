@@ -33,7 +33,7 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-[340px] flex flex-col">
       <form onSubmit={handleSubmit} className="w-full flex flex-col">
-        <h2 className="text-4xl text-white font-comico tracking-wide mb-6 text-center">Sign in</h2>
+        <h2 className="text-4xl text-white font-mono font-bold tracking-tight mb-6 text-center">Sign in</h2>
 
         <button type="button" className="w-full bg-white/[0.03] hover:bg-white/10 transition-colors flex items-center justify-center h-10 rounded-full border border-white/5">
           <img src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleLogo.svg" alt="googleLogo" className="w-4 h-4 opacity-70" />
@@ -52,7 +52,7 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email id"
-            className="bg-transparent text-white placeholder-zinc-500 outline-none text-sm w-full h-full"
+            className="bg-transparent text-white placeholder-zinc-500 outline-none text-sm w-full h-full font-mono"
             required
           />
         </div>
@@ -66,7 +66,7 @@ export default function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="bg-transparent text-white placeholder-zinc-500 outline-none text-sm w-full h-full"
+            className="bg-transparent text-white placeholder-zinc-500 outline-none text-sm w-full h-full font-mono"
             required
           />
         </div>
@@ -80,9 +80,9 @@ export default function LoginForm() {
         <div className="w-full flex items-center justify-between mt-6 text-zinc-400">
           <div className="flex items-center gap-2">
             <input className="h-3 w-3 bg-transparent border-white/20 rounded accent-indigo-500" type="checkbox" id="checkbox" />
-            <label className="text-xs cursor-pointer select-none" htmlFor="checkbox">Remember me</label>
+            <label className="text-xs font-mono cursor-pointer select-none" htmlFor="checkbox">Remember me</label>
           </div>
-          <a className="text-xs hover:text-white transition-colors" href="#">Forgot password?</a>
+          <a className="text-xs font-mono hover:text-white transition-colors" href="#">Forgot password?</a>
         </div>
 
         <motion.button
@@ -90,12 +90,12 @@ export default function LoginForm() {
           whileTap={{ scale: 0.99 }}
           type="submit"
           disabled={loading}
-          className="mt-6 w-full h-10 rounded-full text-white bg-indigo-500 hover:bg-indigo-600 transition-colors font-medium text-sm disabled:opacity-50"
+          className="mt-6 w-full h-10 rounded-full text-white bg-indigo-500 hover:bg-indigo-600 transition-colors font-mono font-bold text-sm disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Login"}
         </motion.button>
 
-        <p className="text-zinc-500 text-xs mt-6 text-center">
+        <p className="text-zinc-500 text-xs font-mono mt-6 text-center">
           Don't have an account?{" "}
           <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 transition-colors">
             Sign up
@@ -103,7 +103,7 @@ export default function LoginForm() {
         </p>
 
         <div className="mt-8 pt-8 border-t border-white/5">
-          <p className="text-[11px] text-zinc-500 font-medium tracking-wide text-center flex items-center justify-center gap-1.5">
+          <p className="text-[11px] text-zinc-500 font-mono font-medium tracking-wide text-center flex items-center justify-center gap-1.5">
             <span className="font-comico text-sm text-zinc-400 tracking-wider">FORGE</span> Crafted with Code. For Builders.
           </p>
         </div>

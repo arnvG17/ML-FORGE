@@ -24,13 +24,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center w-full">
-      <nav className="w-full flex items-center justify-between px-8 py-5 border-b border-border z-20 bg-surface">
-        <span className="text-3xl font-bebas tracking-tight text-white mt-1">FORGE</span>
-        <div className="flex items-center gap-6">
-          <span className="text-sm font-light text-muted font-mono">{userEmail}</span>
+      <nav className="w-full flex items-center justify-between px-4 md:px-8 py-4 md:py-5 border-b border-border z-20 bg-surface">
+        <span className="text-2xl md:text-3xl font-comico tracking-tight text-white mt-1">FORGE</span>
+        <div className="flex items-center gap-4 md:gap-6">
+          <span className="hidden sm:inline text-xs md:text-sm font-light text-muted font-mono">{userEmail}</span>
           <button
             onClick={handleSignOut}
-            className="text-sm font-light text-placeholder hover:text-white font-mono transition-colors duration-150"
+            className="text-xs md:text-sm font-light text-placeholder hover:text-white font-mono transition-colors duration-150"
           >
             Sign out
           </button>
@@ -40,17 +40,16 @@ export default function DashboardPage() {
       <main className="w-full relative px-4 md:px-8 mt-4 flex-1">
         <HeroDitheringCard
           title="Your Workspace"
-          titleClassName="font-comico text-5xl md:text-6xl lg:text-7xl tracking-normal text-white mb-8 leading-[1.05]"
+          titleClassName="font-comico text-4xl md:text-6xl lg:text-7xl tracking-normal text-white mb-6 md:mb-8 leading-[1.05]"
           description="Manage your sessions, build new projects, and review past executions."
           colorFront="#8B5CF6"
-          minHeight="min-h-[400px]"
+          minHeight="min-h-[300px] md:min-h-[400px]"
           hideButton={true}
-          pillText="Dashboard"
         />
 
-        <div className="max-w-7xl mx-auto py-12">
-          <div className="flex items-center justify-between mb-10">
-            <h1 className="text-4xl font-comico font-normal text-white">Sessions</h1>
+        <div className="max-w-7xl mx-auto py-8 md:py-12">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-10">
+            <h1 className="text-3xl md:text-4xl font-comico font-normal text-white">Sessions</h1>
             <NewSessionButton />
           </div>
           <SessionList />

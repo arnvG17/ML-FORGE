@@ -28,7 +28,7 @@ export default function SessionCard({ session }: SessionCardProps) {
       <div className="font-mono text-sm font-semibold mb-2 text-white">
         {session.name}
       </div>
-      <div className="text-xs font-light text-muted mb-3">{date}</div>
+      <div className="text-xs font-mono font-light text-muted mb-3">{date}</div>
       {session.last_algorithm && (
         <div className="text-xs font-light text-placeholder font-mono mb-4">
           {session.last_algorithm}

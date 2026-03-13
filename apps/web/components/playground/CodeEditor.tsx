@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
@@ -16,6 +17,27 @@ interface CodeEditorProps {
 }
 
 export default function CodeEditor({ code }: CodeEditorProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  if (isMobile) {
+    return (
+      <div className="h-full w-full bg-black p-4 overflow-auto">
+        <pre className="text-[13px] font-mono font-light text-white leading-relaxed whitespace-pre-wrap">
+          {code}
+        </pre>
+      </div>
+    );
+  }
+
   return (
     <MonacoEditor
       height="100%"

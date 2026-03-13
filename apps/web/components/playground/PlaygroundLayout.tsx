@@ -6,6 +6,7 @@ import RightPanel from "./RightPanel";
 import { useAgentStore } from "@/store/agent";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -16,17 +17,28 @@ interface Message {
   content: string;
 }
 
+type Tab = "chat" | "preview" | "code";
+
 export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const [started, setStarted] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("chat");
+  const [isMobile, setIsMobile] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const setCode = useAgentStore((s) => s.setCode);
   const setStatus = useAgentStore((s) => s.setStatus);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -59,7 +71,6 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
       textareaRef.current.style.height = "auto";
     }
 
-    // Simulate agent response
     setIsGenerating(true);
     setStatus("writing");
 
@@ -148,8 +159,102 @@ print(json.dumps(output))
     }
   };
 
+  const ChatPanel = () => (
+    <div className={cn("flex flex-col h-full bg-surface border-r border-border z-10", isMobile ? "w-full" : "w-[320px] min-w-[320px]")}>
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/80 backdrop-blur-sm">
+        <span className="font-comico text-3xl tracking-tight text-primary mt-1">FORGE</span>
+        <span className="text-[10px] font-mono font-light text-muted">
+          {sessionId.slice(0, 8)}
+        </span>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-hide">
+        {messages.map((msg, i) => (
+          <motion.div 
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            key={i} 
+            className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+          >
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold ${
+                msg.role === "user"
+                  ? "bg-white text-black"
+                  : "bg-primary/20 text-primary border border-primary/30"
+              }`}
+            >
+              {msg.role === "user" ? "Y" : "F"}
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <div className={`p-3 rounded-2xl max-w-[100%] text-[13px] font-mono leading-relaxed shadow-sm
+                ${msg.role === "user" 
+                  ? "bg-white text-black rounded-tr-sm" 
+                  : "bg-surface border border-white/5 text-placeholder rounded-tl-sm"}`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          </motion.div>
+        ))}
+        {isGenerating && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold bg-primary/20 text-primary border border-primary/30">
+              F
+            </div>
+            <div className="pt-1">
+              <div className="flex gap-1 p-3 rounded-2xl bg-surface border border-white/5 rounded-tl-sm">
+                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
+                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.2 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
+                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="border-t border-white/5 p-4 shrink-0 bg-surface z-20">
+        <div className="relative border border-white/10 rounded-xl bg-[#111111]/80 backdrop-blur-xl focus-within:border-white/20 transition-all duration-300 shadow-lg flex flex-col min-h-[100px]">
+          <textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your request..."
+            rows={1}
+            disabled={isGenerating}
+            className="w-full bg-transparent text-white px-4 py-4 text-[13px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-zinc-500 focus:outline-none resize-none disabled:opacity-40 flex-1"
+          />
+          <div className="flex items-center justify-between px-3 pb-3">
+            <button className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 transition-colors duration-200">
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+            </button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleSend}
+              disabled={!inputValue.trim() || isGenerating}
+              className="bg-[#222222] hover:bg-[#2a2a2a] disabled:opacity-20 text-white p-2 rounded-lg transition-all duration-200 shadow-sm border border-white/5"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m5 12 7-7 7 7M12 19V5" />
+              </svg>
+            </motion.button>
+          </div>
+        </div>
+        {!isMobile && (
+          <div className="text-[10px] font-light text-muted font-mono mt-1.5 px-1">
+            Enter to send · Shift+Enter for new line
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black flex">
+    <div className="relative w-screen h-screen overflow-hidden bg-black flex flex-col md:flex-row">
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div 
@@ -158,40 +263,49 @@ print(json.dumps(output))
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 z-50 h-full w-full flex flex-col items-center justify-center p-4 md:p-8 bg-black">
+            className="absolute inset-0 z-50 h-full w-full flex flex-col items-center justify-center p-4 md:p-8 bg-black overflow-y-auto">
             <HeroDitheringCard
               title="FORGE"
               description="What do you want to build?"
               colorFront="#10B981"
-              className="w-full max-w-3xl"
-              titleClassName="font-comico text-5xl md:text-6xl lg:text-[72px] text-white mb-4 leading-none mt-0"
-              minHeight="min-h-[360px]"
+              className="w-full max-w-[95%] lg:max-w-6xl"
+              titleClassName="font-comico text-5xl md:text-6xl lg:text-[72px] text-white mb-4 leading-none mt-0 text-center"
+              minHeight="min-h-[300px] md:min-h-[360px]"
             >
-              <div className="w-full max-w-[680px]">
-                <div className="relative border border-border rounded-lg bg-black/50 backdrop-blur-sm focus-within:border-white transition-colors duration-200 shadow-2xl">
+              <div className="w-full max-w-[900px] px-4">
+                <div className="relative border border-white/10 rounded-2xl bg-[#111111]/60 backdrop-blur-xl focus-within:border-white/20 transition-all duration-300 shadow-2xl group/input min-h-[160px] flex flex-col">
                   <textarea
                     ref={textareaRef}
                     value={inputValue}
                     onChange={handleInput}
                     onKeyDown={handleKeyDown}
-                    placeholder="Describe what you want to build..."
+                    placeholder="Type your request..."
                     rows={1}
-                    className="w-full bg-transparent text-white px-5 py-4 pr-14 text-[15px] font-light placeholder:font-light placeholder:text-placeholder focus:outline-none resize-none leading-relaxed"
+                    className="w-full bg-transparent text-white px-6 py-6 text-[15px] md:text-[16px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-zinc-500 focus:outline-none resize-none leading-relaxed flex-1"
                   />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSend}
-                    disabled={!inputValue.trim()}
-                    className="absolute right-3 bottom-3 w-8 h-8 flex items-center justify-center rounded bg-white text-black disabled:opacity-20 disabled:bg-muted transition-colors duration-150 shadow-sm"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M8 12V4M8 4L4 8M8 4L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </motion.button>
+                  
+                  <div className="flex items-center justify-between px-4 pb-4">
+                    <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 transition-colors duration-200">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                    </button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleSend}
+                      disabled={!inputValue.trim()}
+                      className="bg-[#222222] hover:bg-[#2a2a2a] disabled:opacity-20 text-white p-3 rounded-xl transition-all duration-200 shadow-sm border border-white/5"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m5 12 7-7 7 7M12 19V5" />
+                      </svg>
+                    </motion.button>
+                  </div>
                 </div>
 
-                <div className="flex gap-3 mt-6 justify-center flex-wrap">
+                <div className="hidden md:flex gap-3 mt-6 justify-center flex-wrap">
                   {[
                     "Build a linear regression model",
                     "Create a K-means clustering visualizer",
@@ -220,103 +334,76 @@ print(json.dumps(output))
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="absolute inset-0 h-full w-full flex overflow-hidden">
+            className="absolute inset-0 h-full w-full flex flex-col md:flex-row overflow-hidden">
             
-            {/* Left: Chat Panel */}
-            <div className="w-[320px] min-w-[320px] h-full flex flex-col bg-surface border-r border-border z-10 shadow-2xl">
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/80 backdrop-blur-sm">
-                <span className="font-bebas text-3xl tracking-tight text-primary mt-1">FORGE</span>
-                <span className="text-[10px] font-mono font-light text-muted">
-                  {sessionId.slice(0, 8)}
-                </span>
-              </div>
+            {isMobile ? (
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-hidden relative">
+                  {activeTab === "chat" && <ChatPanel />}
+                  {activeTab === "preview" && (
+                    <div className="h-full w-full bg-white overflow-y-auto">
+                      <RightPanel sessionId={sessionId} />
+                    </div>
+                  )}
+                  {activeTab === "code" && (
+                    <div className="h-full w-full bg-surface">
+                      <CenterPanel sessionId={sessionId} />
+                    </div>
+                  )}
+                </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-hide">
-                {messages.map((msg, i) => (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    key={i} 
-                    className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+                {/* Mobile Tab Bar */}
+                <div className="h-16 border-t border-border bg-surface flex items-center justify-around px-4 shrink-0">
+                  <button
+                    onClick={() => setActiveTab("chat")}
+                    className={cn(
+                      "flex flex-col items-center gap-1 transition-colors duration-200",
+                      activeTab === "chat" ? "text-primary" : "text-muted"
+                    )}
                   >
-                    <div
-                      className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold ${
-                        msg.role === "user"
-                          ? "bg-white text-black"
-                          : "bg-primary/20 text-primary border border-primary/30"
-                      }`}
-                    >
-                      {msg.role === "user" ? "Y" : "F"}
-                    </div>
-                    <div className="min-w-0 pt-0.5">
-                      <div className={`p-3 rounded-2xl max-w-[100%] text-[13px] leading-relaxed shadow-sm
-                        ${msg.role === "user" 
-                          ? "bg-white text-black rounded-tr-sm" 
-                          : "bg-surface border border-white/5 text-placeholder rounded-tl-sm"}`}
-                      >
-                        {msg.content}
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-                {isGenerating && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold bg-primary/20 text-primary border border-primary/30">
-                      F
-                    </div>
-                    <div className="pt-1">
-                      <div className="flex gap-1 p-3 rounded-2xl bg-surface border border-white/5 rounded-tl-sm">
-                        <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
-                        <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.2 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
-                        <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Chat Input */}
-              <div className="border-t border-border p-3 shrink-0 bg-surface z-20">
-                <div className="relative border border-border rounded-lg bg-black focus-within:border-primary/50 transition-colors duration-200">
-                  <textarea
-                    ref={textareaRef}
-                    value={inputValue}
-                    onChange={handleInput}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Follow up..."
-                    rows={1}
-                    disabled={isGenerating}
-                    className="w-full bg-transparent text-white px-4 py-3 pr-12 text-sm font-light placeholder:font-light placeholder:text-placeholder focus:outline-none resize-none disabled:opacity-40"
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSend}
-                    disabled={!inputValue.trim() || isGenerating}
-                    className="absolute right-2 bottom-2 w-7 h-7 flex items-center justify-center rounded bg-white text-black disabled:opacity-20 disabled:bg-muted transition-colors duration-150"
+                    <div className="w-5 h-5 border border-current rounded-sm flex items-center justify-center font-mono text-[10px] font-bold">F</div>
+                    <span className="text-[10px] font-mono uppercase tracking-tighter">Chat</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("preview")}
+                    className={cn(
+                      "flex flex-col items-center gap-1 transition-colors duration-200",
+                      activeTab === "preview" ? "text-primary" : "text-muted"
+                    )}
                   >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <path d="M8 12V4M8 4L4 8M8 4L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <line x1="3" y1="9" x2="21" y2="9" />
+                      <line x1="9" y1="21" x2="9" y2="9" />
                     </svg>
-                  </motion.button>
-                </div>
-                <div className="text-[10px] font-light text-muted font-mono mt-1.5 px-1">
-                  Enter to send · Shift+Enter for new line
+                    <span className="text-[10px] font-mono uppercase tracking-tighter">Preview</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("code")}
+                    className={cn(
+                      "flex flex-col items-center gap-1 transition-colors duration-200",
+                      activeTab === "code" ? "text-primary" : "text-muted"
+                    )}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                    <span className="text-[10px] font-mono uppercase tracking-tighter">Code</span>
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Center: Sandbox/Interface */}
-            <div className="flex-1 min-w-0 border-r border-border z-0 bg-white">
-              <RightPanel sessionId={sessionId} />
-            </div>
-
-            {/* Right: Code Editor */}
-            <div className="w-[400px] min-w-[350px] shrink-0 bg-surface z-10 shadow-[-20px_0_30px_-15px_rgba(0,0,0,0.5)]">
-              <CenterPanel sessionId={sessionId} />
-            </div>
+            ) : (
+              <>
+                <ChatPanel />
+                <div className="flex-1 min-w-0 border-r border-border z-0 bg-white">
+                  <RightPanel sessionId={sessionId} />
+                </div>
+                <div className="w-[400px] min-w-[350px] shrink-0 bg-surface z-10 shadow-[-20px_0_30px_-15px_rgba(0,0,0,0.5)]">
+                  <CenterPanel sessionId={sessionId} />
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

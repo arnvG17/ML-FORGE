@@ -34,7 +34,7 @@ export default function SignupForm() {
 
   return (
     <div className="w-full max-w-[340px] flex flex-col pt-12 pb-8">
-      <h1 className="text-5xl font-bebas tracking-normal mb-12 text-black text-center">FORGE</h1>
+      <h1 className="text-5xl font-comico tracking-normal mb-12 text-black text-center">FORGE</h1>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
         <div className="flex flex-col gap-2">
@@ -115,7 +115,7 @@ export default function SignupForm() {
       </form>
 
       <div className="mt-8 flex items-center justify-center gap-2">
-        <p className="text-sm text-zinc-500 font-medium">Already have an account?</p>
+        <p className="text-sm text-zinc-500 font-mono font-medium">Already have an account?</p>
         <Link
           href="/login"
           className="text-sm text-black font-bold hover:underline"
@@ -126,7 +126,7 @@ export default function SignupForm() {
 
       <div className="mt-auto pt-24 pb-4">
         <p className="text-[11px] text-zinc-400 font-medium tracking-wide text-center">
-          <b className="font-bold text-zinc-500 mr-1">FORGE</b> Crafted with Code. For Builders.
+          <b className="font-comico text-zinc-500 mr-1">FORGE</b> Crafted with Code. For Builders.
         </p>
       </div>
     </div>
