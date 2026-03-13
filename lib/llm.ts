@@ -159,7 +159,7 @@ Write a single self-contained Python script that trains an ML
 model, generates plots, and sets a variable called forge_result.
 
 ═ FILE STRUCTURE — write in this order ═
-1. Imports (sklearn, numpy, pandas, matplotlib, json, base64, io)
+1. Imports (sklearn, numpy, pandas, matplotlib, seaborn, json, base64, io)
 2. matplotlib.use('Agg') — must be before any other matplotlib import
 3. CONTROLS list (declared before anything else runs)
 4. Data loading (at top level, runs once)

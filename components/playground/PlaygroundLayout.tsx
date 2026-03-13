@@ -8,6 +8,9 @@ import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useOrchestrator } from "@/hooks/useOrchestrator";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { MorphingSquare } from "@/components/ui/morphing-square";
+import { TextEffect } from "@/components/ui/text-effect";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -20,7 +23,10 @@ interface Message {
 
 type Tab = "chat" | "preview" | "code";
 
+const HERO_COLORS = ["#10B981", "#EAB308", "#3B82F6", "#EF4444", "#8B5CF6", "#F97316", "#06B6D4", "#6366F1"];
+
 export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
+  const [heroColor, setHeroColor] = useState("#10B981");
   const [started, setStarted] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("chat");
@@ -35,6 +41,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const { submitIntent } = useOrchestrator();
 
   useEffect(() => {
+    setHeroColor(HERO_COLORS[Math.floor(Math.random() * HERO_COLORS.length)]);
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -80,7 +87,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   };
 
   const ChatPanel = () => (
-    <div className={cn("flex flex-col h-full bg-surface border-r border-border z-10", isMobile ? "w-full" : "w-[320px] min-w-[320px]")}>
+    <div className={cn("flex flex-col h-full bg-surface border-r border-border z-10 w-full")}>
       <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/80 backdrop-blur-sm">
         <span className="font-comico text-3xl tracking-tight text-primary mt-1">FORGE</span>
         <span className="text-[10px] font-mono font-light text-muted">
@@ -100,7 +107,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
               className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold ${
                 msg.role === "user"
                   ? "bg-white text-black"
-                  : "bg-primary/20 text-primary border border-primary/30"
+                  : "bg-black text-white border border-white/20"
               }`}
             >
               {msg.role === "user" ? "Y" : "F"}
@@ -108,24 +115,24 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
             <div className="min-w-0 pt-0.5">
               <div className={`p-3 rounded-2xl max-w-[100%] text-[13px] font-mono leading-relaxed shadow-sm
                 ${msg.role === "user" 
-                  ? "bg-white text-black rounded-tr-sm" 
-                  : "bg-surface border border-white/5 text-placeholder rounded-tl-sm"}`}
+                  ? "bg-black border border-white/20 text-white rounded-tr-sm" 
+                  : "bg-black border border-white/20 text-white rounded-tl-sm"}`}
               >
-                {msg.content}
+                <TextEffect per="word" preset="blur">
+                  {msg.content}
+                </TextEffect>
               </div>
             </div>
           </motion.div>
         ))}
         {isStreaming && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold bg-primary/20 text-primary border border-primary/30">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold bg-black text-white border border-white/20">
               F
             </div>
             <div className="pt-1">
-              <div className="flex gap-1 p-3 rounded-2xl bg-surface border border-white/5 rounded-tl-sm">
-                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
-                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.2 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
-                <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.4, delay: 0.4 }} className="w-1.5 h-1.5 bg-placeholder rounded-full" />
+              <div className="flex items-center p-3 rounded-2xl bg-black border border-white/20 rounded-tl-sm">
+                <MorphingSquare className="w-3 h-3 bg-white" />
               </div>
             </div>
           </motion.div>
@@ -187,7 +194,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
             <HeroDitheringCard
               title="FORGE"
               description="What do you want to build?"
-              colorFront="#10B981"
+              colorFront={heroColor}
               className="w-full max-w-[95%] lg:max-w-6xl"
               titleClassName="font-comico text-5xl md:text-6xl lg:text-[72px] text-white mb-4 leading-none mt-0 text-center"
               minHeight="min-h-[300px] md:min-h-[360px]"
@@ -315,13 +322,27 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
               </div>
             ) : (
               <>
-                <ChatPanel />
-                <div className="flex-1 min-w-0 border-r border-border z-0 bg-white">
-                  <RightPanel sessionId={sessionId} />
-                </div>
-                <div className="w-[400px] min-w-[350px] shrink-0 bg-surface z-10 shadow-[-20px_0_30px_-15px_rgba(0,0,0,0.5)]">
-                  <CenterPanel sessionId={sessionId} />
-                </div>
+                <ResizablePanelGroup direction="horizontal" className="flex-1 w-full">
+                  <ResizablePanel defaultSize={30} minSize={20} collapsible={true}>
+                    <ChatPanel />
+                  </ResizablePanel>
+                  
+                  <ResizableHandle withHandle className="bg-white/5 hover:bg-white/10 transition-colors" />
+                  
+                  <ResizablePanel defaultSize={55} minSize={30}>
+                    <div className="h-full w-full bg-white relative overflow-hidden">
+                      <RightPanel sessionId={sessionId} />
+                    </div>
+                  </ResizablePanel>
+                  
+                  <ResizableHandle withHandle className="bg-white/5 hover:bg-white/10 transition-colors" />
+                  
+                  <ResizablePanel defaultSize={15} minSize={10} collapsible={true}>
+                    <div className="h-full bg-surface shadow-[-20px_0_30px_-15px_rgba(0,0,0,0.5)] border-l border-white/5">
+                      <CenterPanel sessionId={sessionId} />
+                    </div>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
               </>
             )}
           </motion.div>

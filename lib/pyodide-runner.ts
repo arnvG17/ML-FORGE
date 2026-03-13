@@ -57,11 +57,11 @@ export async function getPyodide() {
       "scipy",
     ]);
 
-    console.log("[Pyodide] Packages installed. Applying network patch (pyodide-http)...");
+    console.log("[Pyodide] Packages installed. Applying network patch and installing extra libs (seaborn, statsmodels)...");
     // Apply network patch to support HTTPS via browser fetch
     await pyodide.runPythonAsync(`
 import micropip
-await micropip.install('pyodide-http')
+await micropip.install(['pyodide-http', 'seaborn', 'statsmodels'])
 import pyodide_http
 pyodide_http.patch_all()
     `);

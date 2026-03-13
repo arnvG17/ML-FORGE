@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { useAgentStore } from "@/store/agent";
+import { TextEffect } from "@/components/ui/text-effect";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -18,6 +20,7 @@ interface CodeEditorProps {
 
 export default function CodeEditor({ code }: CodeEditorProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "writing");
 
   useEffect(() => {
     const checkMobile = () => {
@@ -28,12 +31,31 @@ export default function CodeEditor({ code }: CodeEditorProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  if (isMobile) {
+  // Use Cinematic Mode (TextEffect) during streaming or on mobile
+  if (isStreaming || isMobile) {
     return (
-      <div className="h-full w-full bg-black p-4 overflow-auto">
-        <pre className="text-[13px] font-mono font-light text-white leading-relaxed whitespace-pre-wrap">
-          {code}
-        </pre>
+      <div className="h-full w-full bg-black p-6 overflow-y-auto scrollbar-hide">
+        <TextEffect 
+          key={isStreaming ? "streaming" : "static"}
+          per="line" 
+          preset="blur" 
+          className="text-[13px] font-mono font-light text-white leading-relaxed"
+          variants={{
+            container: {
+              visible: {
+                transition: {
+                  staggerChildren: 0.1, // Adjusted for better feel
+                }
+              }
+            },
+            item: {
+                hidden: { opacity: 0, filter: 'blur(10px)', y: 10 },
+                visible: { opacity: 1, filter: 'blur(0px)', y: 0, transition: { duration: 0.6 } }
+            }
+          }}
+        >
+          {code || "Generating code..."}
+        </TextEffect>
       </div>
     );
   }

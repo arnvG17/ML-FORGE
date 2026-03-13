@@ -4,6 +4,8 @@ import ControlsRenderer from "./ControlsRenderer";
 import MetricCard from "./MetricCard";
 import PlotViewer from "./PlotViewer";
 import { useOutputStore } from "@/store/output";
+import { MorphingSquare } from "@/components/ui/morphing-square";
+import { useAgentStore } from "@/store/agent";
 
 interface RightPanelProps {
   sessionId: string;
@@ -43,10 +45,11 @@ export default function RightPanel({ sessionId }: RightPanelProps) {
       {controls.length === 0 &&
         Object.keys(metrics).length === 0 &&
         Object.keys(plots).length === 0 && (
-          <div className="flex-1 flex items-center justify-center">
-            <span className="text-sm font-mono font-light text-muted">
-              Output will appear here
-            </span>
+          <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+            <MorphingSquare 
+              message={useAgentStore.getState().status === 'thinking' ? 'Generating...' : 'Waiting for output...'} 
+              className="w-12 h-12 bg-white/20"
+            />
           </div>
         )}
     </div>
