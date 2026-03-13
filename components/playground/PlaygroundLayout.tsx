@@ -7,6 +7,7 @@ import { useAgentStore } from "@/store/agent";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useOrchestrator } from "@/hooks/useOrchestrator";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -28,11 +29,10 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  const setCode = useAgentStore((s) => s.setCode);
-  const setStatus = useAgentStore((s) => s.setStatus);
   const messages = useAgentStore((s) => s.messages);
-  const isStreaming = useAgentStore((s) => s.isStreaming);
-  const sendMessage = useAgentStore((s) => s.sendMessage);
+  const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing");
+  
+  const { submitIntent } = useOrchestrator();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -69,10 +69,8 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
       textareaRef.current.style.height = "auto";
     }
 
-    setStatus("writing");
-    await sendMessage(trimmed);
-    setStatus("done");
-  }, [inputValue, isStreaming, started, setStatus, sendMessage]);
+    await submitIntent(trimmed, "browser");
+  }, [inputValue, isStreaming, started, submitIntent]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

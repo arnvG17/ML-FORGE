@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
+import Script from "next/script";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -25,6 +25,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <Script
+          src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="bg-black text-white font-sans antialiased">
         {children}
       </body>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { OutputControl } from "@/types";
-import { useExecution } from "@/hooks/useExecution";
+import { useOrchestrator } from "@/hooks/useOrchestrator";
 
 interface ControlsRendererProps {
   controls: OutputControl[];
@@ -21,12 +21,12 @@ export default function ControlsRenderer({
     return initial;
   });
 
-  const { executeWithParams } = useExecution(sessionId);
+  const { runWithParams } = useOrchestrator();
 
   const handleChange = (targetsVar: string, value: number | string) => {
     const newValues = { ...values, [targetsVar]: value };
     setValues(newValues);
-    executeWithParams(newValues);
+    runWithParams(newValues);
   };
 
   return (
