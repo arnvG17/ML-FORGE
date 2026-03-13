@@ -18,10 +18,7 @@ export default function PlotViewer({ name, base64 }: PlotViewerProps) {
       <img
         src={`data:image/png;base64,${base64}`}
         alt={name}
-        onLoad={() => setLoaded(true)}
-        className={`w-full transition-opacity duration-150 ease-in-out ${
-          loaded ? "opacity-100" : "opacity-0"
-        }`}
+        className="w-full bg-[#0a0a0a]"
         style={{ aspectRatio: "auto" }}
       />
     </div>

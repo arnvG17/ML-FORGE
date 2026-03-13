@@ -21,7 +21,7 @@ async function streamAndStore(intent: string, mode: ExecutionMode, streamTokens:
 async function runBrowser(code: string, params: Record<string, any>, config: {
   setAll: (data: any) => void;
   setStatus: (status: any) => void;
-  addMessage: (msg: any) => void;
+  addMessage?: (msg: any) => void; // Optional message handler
 }) {
   try {
     const result = await runInBrowser(code);
@@ -29,7 +29,9 @@ async function runBrowser(code: string, params: Record<string, any>, config: {
     if (result.errors && result.errors.length > 0) {
       config.setAll({ errors: result.errors });
       config.setStatus("error");
-      config.addMessage({ role: "assistant", content: `Execution error: ${result.errors.join(", ")}` });
+      if (config.addMessage) {
+        config.addMessage({ role: "assistant", content: `Execution error: ${result.errors.join(", ")}` });
+      }
       return;
     }
 
@@ -41,7 +43,11 @@ async function runBrowser(code: string, params: Record<string, any>, config: {
       errors: [],
     });
     config.setStatus("done");
-    config.addMessage({ role: "assistant", content: "Execution completed successfully." });
+    
+    if (config.addMessage) {
+      const messageContent = result.explanation || "Execution completed successfully.";
+      config.addMessage({ role: "assistant", content: messageContent });
+    }
   } catch (err: any) {
     config.setAll({ errors: [err.message] });
     config.setStatus("error");
@@ -121,7 +127,8 @@ export function useOrchestrator() {
     setStatus("running");
     const setupCode = `params = ${JSON.stringify(params)}\n`;
     const fullCode = setupCode + code;
-    await runBrowser(fullCode, params, { setAll: setOutput, setStatus, addMessage });
+    // DO NOT pass addMessage here, so it only updates the state without adding a chat message
+    await runBrowser(fullCode, params, { setAll: setOutput, setStatus });
   };
 
   return {

@@ -24,9 +24,17 @@ export default function ControlsRenderer({
   const { runWithParams } = useOrchestrator();
 
   const handleChange = (targetsVar: string, value: number | string) => {
+    // 1. Update local state immediately for UI responsiveness
     const newValues = { ...values, [targetsVar]: value };
     setValues(newValues);
-    runWithParams(newValues);
+
+    // 2. Debounce the actual Pyodide execution
+    const timerId = (window as any)._forge_debounce_timer;
+    if (timerId) clearTimeout(timerId);
+
+    (window as any)._forge_debounce_timer = setTimeout(() => {
+      runWithParams(newValues);
+    }, 200); 
   };
 
   return (

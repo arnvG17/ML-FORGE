@@ -135,8 +135,8 @@ Your job is to take a raw user intent and transform it into a sophisticated, tec
 
 ═ YOUR GOALS ═
 1. Expand the idea: Add depth, edge cases, and "cool" features (e.g., if they ask for a chart, think of what metrics deserve a slider).
-2. Library selection: Identify exactly which parts of scikit-learn, numpy, or pandas are needed. 
-3. UI Design: Design a set of interactive CONTROLS (sliders, selects) that make sense for this specific task.
+2. Library selection: Identify exactly which parts of scikit-learn, numpy, pandas, or seaborn are needed.
+3. UI Design: Design a set of interactive CONTROLS (sliders, selects) that make sense for this specific task. Focus on hyperparameters that directly affect the model's behavior or the visualization.
 4. Data Strategy: Decide how to generate or load data (synthetic generation is preferred for one-shot demos).
 
 ═ OUTPUT FORMAT ═
@@ -144,7 +144,8 @@ Output a concise TECHNICAL PLAN. Focus on:
 - ML Approach: (e.g. "RandomForestClassifier for digit recognition")
 - Data Prep: (e.g. "Generate 500 samples of noisy sine waves")
 - Controls: (e.g. "Add a slider for 'Noise Level' and 'Sample Count'")
-- Visuals: (e.g. "Plot decision boundaries and a confusion matrix")
+- Visuals: (e.g. "Plot decision boundaries using seaborn and a confusion matrix")
+- Interaction Concept: Explain how the sliders will interact with the plots back and forth.
 
 Be specific. Be technical. Do not write code here. Just the plan.
 `;
@@ -161,16 +162,17 @@ model, generates plots, and sets a variable called forge_result.
 ═ FILE STRUCTURE — write in this order ═
 1. Imports (sklearn, numpy, pandas, matplotlib, seaborn, json, base64, io, textwrap)
 2. matplotlib.use('Agg') — must be before any other matplotlib import
-3. CONTROLS list (declared before anything else runs)
-4. Data loading (at top level, runs once)
-5. Inside a try block:
-     - Read parameters from a dict called params
-       (this dict will be injected before your code runs)
-     - Train the model using constructor parameters
-     - Calculate metrics
-     - Generate plots
-     - Set forge_result
-6. Except block sets forge_result with error
+3. sns.set_theme(style="dark", palette="muted") — for premium aesthetics
+4. Data Persistence Logic:
+   # Use globals to cache data and avoid regeneration on slider updates
+   if 'X' not in globals():
+       # Generate data here
+       pass
+5. CONTROLS list
+6. Inside a try block:
+     - Read parameters from params
+     - Train model, generate plots, set forge_result
+7. Except block sets forge_result with error
 
 ═ THE params DICT ═
 Before your code runs, a dict called params will already exist in the Python environment. Read from it like this:
@@ -178,27 +180,34 @@ MAX_DEPTH = int(params.get("MAX_DEPTH", 3))
 Always provide a sensible default in the .get() call.
 
 ═ CONTROLS LIST ═
-Declare CONTROLS as a Python list at the top. Every tunable parameter needs a control entry.
+Declare CONTROLS as a Python list. Every tunable parameter needs a control entry.
 Slider shape: {"id": "max_depth", "type": "slider", "label": "Tree Depth", "min": 1, "max": 20, "step": 1, "default": 3, "targets_var": "MAX_DEPTH"}
 
 ═ MODEL TRAINING & DATA RULES ═
+- IMPORTANT: Reuse data if it exists in globals() to ensure consistency when sliders are moved.
 - Always pass hyperparameters in the constructor.
 - Always set random_state=42.
-- IMPORTANT: sklearn's CountVectorizer ignores 1-character tokens by default. If the user asks for character-level patterns or simple splitting, use CountVectorizer(token_pattern=r"(?u)\\b\\w+\\b") or CountVectorizer(analyzer='char') or simple manual frequency counting.
 - Prefer numpy and pandas for data manipulation.
 
 ═ PLOT RULES ═
-Write one function per plot. Each returns a base64 string.
-fig, ax = plt.subplots(figsize=(7, 5))
-Apply styling to axis and spines (#0a0a0a, #555555, #222222).
-Never call plt.show(). Always plt.close(fig) at the end.
+- Write one function per plot. Each returns a base64 string.
+- Use seaborn where possible for high-quality visuals.
+- fig, ax = plt.subplots(figsize=(8, 6), facecolor='#0a0a0a')
+- Apply styling to axis and spines:
+    ax.set_facecolor('#0a0a0a')
+    ax.tick_params(colors='#888888', labelsize=8)
+    for spine in ax.spines.values(): spine.set_color('#333333')
+    ax.title.set_color('#ffffff')
+    ax.xaxis.label.set_color('#888888')
+    ax.yaxis.label.set_color('#888888')
+- Never call plt.show(). Always plt.close(fig) at the end.
 
 ═ forge_result — THE ONLY OUTPUT ═
 forge_result = {
     "metrics": {"Accuracy": float(accuracy)},
-    "plots": {"confusion_matrix": make_plot(...)},
+    "plots": {"main_plot": make_plot(...)},
     "controls": CONTROLS,
-    "explanation": "A concise breakdown of the model approach, dataset, and what the visualizations represent.",
+    "explanation": "A high-level technical description focusing on the interaction and the effects of hyperparameters.",
     "errors": []
 }
 Values in metrics must be float/str, not numpy types. Ensure float() coercion for all numbers.
