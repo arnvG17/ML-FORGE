@@ -2,65 +2,152 @@ import { Groq } from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
- * Streams tokens using Groq as primary and Gemini as fallback.
- * Uses llama-3.3-70b-versatile for Groq and gemini-2.0-flash for Gemini.
+ * Streams tokens using a preferred provider first, with fallback.
  */
-async function* streamWithFallback(prompt: string) {
+async function* streamWithFallback(prompt: string, preferGemini = false) {
   const start = Date.now();
   console.log("[LLM] Starting streamWithFallback");
   console.log("[LLM] FULL PROMPT:\n", prompt);
   
-  try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error("GROQ_API_KEY is missing");
-
-    console.log("[LLM] Attempting Groq (llama-3.3-70b-versatile)...");
-    const groq = new Groq({ apiKey });
-    const stream = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.1,
-      max_tokens: 8192,
-      stream: true,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    let tokenCount = 0;
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content;
-      if (token) {
-        tokenCount++;
-        yield token;
-      }
+  if (preferGemini) {
+    try {
+      yield* streamGemini(prompt, start);
+    } catch (e) {
+      console.warn(`[LLM] Gemini failed. Falling back to Groq...`);
+      yield* streamGroq(prompt, start);
     }
-    console.log(`[LLM] Groq stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
-  } catch (e: any) {
-    console.warn(`[LLM] Groq failed: ${e.message}. Falling back to Gemini...`);
-    
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    if (!geminiKey) {
-      console.error("[LLM] CRITICAL: No Gemini API keys found in env.");
-      throw new Error("No LLM API keys available for fallback.");
+  } else {
+    try {
+      yield* streamGroq(prompt, start);
+    } catch (e) {
+      console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+      yield* streamGemini(prompt, start);
     }
-
-    console.log("[LLM] Attempting Gemini (gemini-2.0-flash)...");
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-    });
-    
-    const result = await model.generateContentStream(prompt);
-    let tokenCount = 0;
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        tokenCount++;
-        yield text;
-      }
-    }
-    console.log(`[LLM] Gemini stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
   }
 }
+
+async function* streamGroq(prompt: string, start: number) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is missing");
+
+  console.log("[LLM] Attempting Groq (llama-3.3-70b-versatile)...");
+  const groq = new Groq({ apiKey });
+  const stream = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.1,
+    max_tokens: 8192,
+    stream: true,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  let tokenCount = 0;
+  for await (const chunk of stream) {
+    const token = chunk.choices[0]?.delta?.content;
+    if (token) {
+      tokenCount++;
+      yield token;
+    }
+  }
+  console.log(`[LLM] Groq stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
+}
+
+async function* streamGemini(prompt: string, start: number) {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!geminiKey) throw new Error("No Gemini API keys found");
+
+  console.log("[LLM] Attempting Gemini (gemini-2.0-flash)...");
+  const genAI = new GoogleGenerativeAI(geminiKey);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+  });
+  
+  const result = await model.generateContentStream(prompt);
+  let tokenCount = 0;
+  for await (const chunk of result.stream) {
+    const text = chunk.text();
+    if (text) {
+      tokenCount++;
+      yield text;
+    }
+  }
+  console.log(`[LLM] Gemini stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
+}
+
+/**
+ * Non-streaming fetch for the Thinker stage.
+ */
+async function thinkWithFallback(prompt: string, preferGemini = false): Promise<string> {
+  const start = Date.now();
+  console.log("[LLM] Starting thinkWithFallback (preferGemini: " + preferGemini + ")");
+  
+  if (preferGemini) {
+    try {
+      return await thinkGemini(prompt, start);
+    } catch (e) {
+      console.warn(`[LLM] Thinker: Gemini failed. Falling back to Groq...`);
+      return await thinkGroq(prompt, start);
+    }
+  } else {
+    try {
+      return await thinkGroq(prompt, start);
+    } catch (e) {
+      console.warn(`[LLM] Thinker: Groq failed. Falling back to Gemini...`);
+      return await thinkGemini(prompt, start);
+    }
+  }
+}
+
+async function thinkGroq(prompt: string, start: number): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is missing");
+
+  console.log("[LLM] Thinker: Attempting Groq (llama-3.3-70b-versatile)...");
+  const groq = new Groq({ apiKey });
+  const completion = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    temperature: 0.2,
+    max_tokens: 1024,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const result = completion.choices[0]?.message?.content || "";
+  console.log(`[LLM] Thinker: Groq completed in ${Date.now() - start}ms`);
+  return result;
+}
+
+async function thinkGemini(prompt: string, start: number): Promise<string> {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  if (!geminiKey) throw new Error("No API keys for Gemini");
+
+  console.log("[LLM] Thinker: Attempting Gemini (gemini-2.0-flash)...");
+  const genAI = new GoogleGenerativeAI(geminiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const result = await model.generateContent(prompt);
+  
+  console.log(`[LLM] Thinker: Gemini completed in ${Date.now() - start}ms`);
+  return result.response.text();
+}
+
+const THINKER_SYSTEM_PROMPT = `
+You are a Senior Machine Learning Architect at Forge.
+Your job is to take a raw user intent and transform it into a sophisticated, technically sound execution plan for a browser-based Python (Pyodide) environment.
+
+═ YOUR GOALS ═
+1. Expand the idea: Add depth, edge cases, and "cool" features (e.g., if they ask for a chart, think of what metrics deserve a slider).
+2. Library selection: Identify exactly which parts of scikit-learn, numpy, or pandas are needed. 
+3. UI Design: Design a set of interactive CONTROLS (sliders, selects) that make sense for this specific task.
+4. Data Strategy: Decide how to generate or load data (synthetic generation is preferred for one-shot demos).
+
+═ OUTPUT FORMAT ═
+Output a concise TECHNICAL PLAN. Focus on:
+- ML Approach: (e.g. "RandomForestClassifier for digit recognition")
+- Data Prep: (e.g. "Generate 500 samples of noisy sine waves")
+- Controls: (e.g. "Add a slider for 'Noise Level' and 'Sample Count'")
+- Visuals: (e.g. "Plot decision boundaries and a confusion matrix")
+
+Be specific. Be technical. Do not write code here. Just the plan.
+`;
 
 const PYODIDE_SYSTEM_PROMPT = `
 You are a Python code generation agent for Forge.
@@ -126,9 +213,17 @@ You are a backend Machine Learning engineer building a Flask application.
 Write a robust, self-contained Python file acting as a Flask app.
 `;
 
-export async function* streamPyodideScript(intent: string) {
-  const prompt = PYODIDE_SYSTEM_PROMPT + "\n\nUser intent: " + intent;
-  for await (const token of streamWithFallback(prompt)) {
+export async function thinkAboutIntent(intent: string) {
+  const prompt = THINKER_SYSTEM_PROMPT + "\n\nUser intent: " + intent;
+  // Stage 1: Prefer Gemini
+  return await thinkWithFallback(prompt, true);
+}
+
+export async function* streamPyodideScript(intent: string, plan?: string) {
+  const context = plan ? `\n\nTECHNICAL PLAN TO FOLLOW:\n${plan}` : "";
+  const prompt = PYODIDE_SYSTEM_PROMPT + context + "\n\nUser intent: " + intent;
+  // Stage 2: Prefer Groq
+  for await (const token of streamWithFallback(prompt, false)) {
     yield token;
   }
 }

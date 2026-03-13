@@ -1,4 +1,4 @@
-import { streamPyodideScript, streamFlaskApp } from "@/lib/llm";
+import { streamPyodideScript, streamFlaskApp, thinkAboutIntent } from "@/lib/llm";
 
 export const runtime = "nodejs";
 
@@ -15,9 +15,17 @@ export async function POST(req: Request) {
       return new Response("Intent is required", { status: 400 });
     }
 
+    let plan = "";
+    if (mode === "browser") {
+      console.log(`[API:${requestId}] Stage 1: Thinking...`);
+      plan = await thinkAboutIntent(intent);
+      console.log(`[API:${requestId}] Technical Plan:\n${plan}`);
+    }
+
+    console.log(`[API:${requestId}] Stage 2: Streaming Code...`);
     const stream = mode === "server" 
       ? streamFlaskApp(intent) 
-      : streamPyodideScript(intent);
+      : streamPyodideScript(intent, plan);
     
     const encoder = new TextEncoder();
     console.log(`[API:${requestId}] Initializing stream...`);
