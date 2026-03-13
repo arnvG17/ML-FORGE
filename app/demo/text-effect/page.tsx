@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TextEffect } from "@/components/ui/text-effect";
+import { Variants } from "framer-motion";
 
 function TextEffectPerChar() {
   return (
@@ -29,7 +30,7 @@ function TextEffectWithCustomVariants() {
     return color;
   };
 
-  const fancyVariants = {
+  const fancyVariants: any = {
     container: {
       hidden: { opacity: 0 },
       visible: {
@@ -40,19 +41,17 @@ function TextEffectWithCustomVariants() {
       },
     },
     item: {
-      hidden: () => ({
+      hidden: {
         opacity: 0,
-        y: Math.random() * 100 - 50,
-        rotate: Math.random() * 90 - 45,
+        y: 20,
+        rotate: -10,
         scale: 0.3,
-        color: getRandomColor(),
-      }),
+      },
       visible: {
         opacity: 1,
         y: 0,
         rotate: 0,
         scale: 1,
-        color: getRandomColor(),
         transition: {
           type: 'spring',
           damping: 12,
@@ -167,7 +166,7 @@ function TextEffectWithExit() {
 
     return () => clearInterval(interval);
   }, []);
-  const blurSlideVariants = {
+  const blurSlideVariants: any = {
     container: {
       hidden: { opacity: 0 },
       visible: {
