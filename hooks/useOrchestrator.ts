@@ -37,6 +37,7 @@ async function runBrowser(code: string, params: Record<string, any>, config: {
       metrics: result.metrics,
       plots: result.plots,
       controls: result.controls,
+      explanation: result.explanation,
       errors: [],
     });
     config.setStatus("done");

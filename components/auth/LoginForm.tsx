@@ -33,7 +33,7 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-[340px] flex flex-col">
       <form onSubmit={handleSubmit} className="w-full flex flex-col">
-        <h2 className="text-4xl text-white font-mono font-bold tracking-tight mb-6 text-center">Sign in</h2>
+        <h2 className="text-4xl text-white font-comico tracking-tighter mb-6 text-center">Sign in</h2>
 
         <button type="button" className="w-full bg-white/[0.03] hover:bg-white/10 transition-colors flex items-center justify-center h-10 rounded-full border border-white/5">
           <img src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/main/assets/login/googleLogo.svg" alt="googleLogo" className="w-4 h-4 opacity-70" />

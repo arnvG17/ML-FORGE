@@ -159,7 +159,7 @@ Write a single self-contained Python script that trains an ML
 model, generates plots, and sets a variable called forge_result.
 
 ═ FILE STRUCTURE — write in this order ═
-1. Imports (sklearn, numpy, pandas, matplotlib, seaborn, json, base64, io)
+1. Imports (sklearn, numpy, pandas, matplotlib, seaborn, json, base64, io, textwrap)
 2. matplotlib.use('Agg') — must be before any other matplotlib import
 3. CONTROLS list (declared before anything else runs)
 4. Data loading (at top level, runs once)
@@ -198,6 +198,7 @@ forge_result = {
     "metrics": {"Accuracy": float(accuracy)},
     "plots": {"confusion_matrix": make_plot(...)},
     "controls": CONTROLS,
+    "explanation": "A concise breakdown of the model approach, dataset, and what the visualizations represent.",
     "errors": []
 }
 Values in metrics must be float/str, not numpy types. Ensure float() coercion for all numbers.

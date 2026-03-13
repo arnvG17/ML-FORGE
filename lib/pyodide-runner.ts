@@ -96,6 +96,7 @@ export type PyodideResult = {
   metrics: Record<string, number | string>;
   plots: Record<string, string>;
   controls: any[];
+  explanation?: string;
   errors: string[];
 };
 
@@ -110,6 +111,7 @@ export async function runInBrowser(code: string): Promise<PyodideResult> {
     metrics: {},
     plots: {},
     controls: [],
+    explanation: "",
     errors: [],
   };
 
@@ -142,6 +144,7 @@ export async function runInBrowser(code: string): Promise<PyodideResult> {
       metrics: {},
       plots: resultObj.plots || {},
       controls: resultObj.controls || [],
+      explanation: resultObj.explanation || "",
       errors: resultObj.errors || [],
     };
 
