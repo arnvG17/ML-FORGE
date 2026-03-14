@@ -38,7 +38,7 @@ export default function Hero() {
           description="AI-driven scikit-learn playground. Describe your model, stream the code, interact with results instantly. No local environment required."
           buttonText="Start Building →"
           colorFront={heroColor}
-          onClick={() => router.push("/login")}
+          onClick={() => router.push("/sign-in")}
           className="pt-20 pb-12"
           titleClassName="font-comico text-5xl md:text-8xl lg:text-[120px] tracking-tighter text-white mb-6 md:mb-8 leading-none"
           minHeight="min-h-[60vh] md:min-h-[70vh]"

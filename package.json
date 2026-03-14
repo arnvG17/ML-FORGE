@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",
+    "@clerk/nextjs": "^7.0.4",
     "@google/generative-ai": "^0.24.1",
     "@monaco-editor/react": "^4.6.0",
     "@paper-design/shaders-react": "^0.0.71",
@@ -21,7 +22,9 @@
     "framer-motion": "^12.35.2",
     "groq-sdk": "^1.1.1",
     "lucide-react": "^0.577.0",
+    "mongodb": "^7.1.0",
     "motion": "^12.36.0",
+    "nanoid": "^5.1.6",
     "next": "14.1.0",
     "next-auth": "^4.24.0",
     "react": "^18.2.0",

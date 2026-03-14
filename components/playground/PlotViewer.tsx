@@ -16,6 +16,7 @@ export default function PlotViewer({ name, base64 }: PlotViewerProps) {
         {name}
       </div>
       <img
+        key={base64.slice(-20)}
         src={`data:image/png;base64,${base64}`}
         alt={name}
         className="w-full bg-[#0a0a0a]"

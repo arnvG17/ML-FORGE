@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useCallback, useEffect } from "react";
 import { useAgentStore } from "@/store/agent";
 import { useOutputStore } from "@/store/output";
 import { useSessionStore } from "@/store/session";
@@ -21,7 +22,7 @@ async function streamAndStore(intent: string, mode: ExecutionMode, streamTokens:
 async function runBrowser(code: string, params: Record<string, any>, config: {
   setAll: (data: any) => void;
   setStatus: (status: any) => void;
-  addMessage?: (msg: any) => void; // Optional message handler
+  addMessage?: (msg: any) => void;
 }) {
   try {
     const result = await runInBrowser(code);
@@ -58,6 +59,239 @@ export function useOrchestrator() {
   const { status, setStatus, code, setCode, appendCode, addMessage, reset: resetAgent } = useAgentStore();
   const { setAll: setOutput, reset: resetOutput } = useOutputStore();
 
+  const sessionIdRef = useRef<string | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedMessageCountRef = useRef<number>(0);
+  const lastSavedVersionRef = useRef<number>(0);
+
+  // ─── saveSession ────────────────────────────────────────────────────────
+  const saveSession = useCallback(async () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    const agentState = useAgentStore.getState();
+    const outputState = useOutputStore.getState();
+    const sessionState = useSessionStore.getState();
+
+    if (agentState.status !== "done") return;
+
+    const fullGeneratedCode = agentState.code;
+    const controls = outputState.controls;
+    const currentParams: Record<string, any> = {};
+    controls.forEach((c) => {
+      currentParams[c.targets_var] = c.default;
+    });
+
+    const payload: any = {
+      currentCode: {
+        full: fullGeneratedCode,
+        extractedML: fullGeneratedCode,
+        version: sessionState.codeVersion,
+      },
+      controls,
+      currentParams,
+      lastMetrics: outputState.metrics,
+      executionMode: "browser",
+      intent: agentState.messages[0]?.content ?? "",
+      name: (agentState.messages[0]?.content ?? "Untitled").slice(0, 60),
+    };
+
+    try {
+      if (!sessionIdRef.current) {
+        // First save — create session via POST
+        const res = await fetch("/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          console.error("[Orchestrator] Failed to create session:", await res.text());
+          return;
+        }
+        const data = await res.json();
+        sessionIdRef.current = data.sessionId;
+
+        // Update URL without page reload
+        window.history.replaceState({}, "", `/playground/${data.sessionId}`);
+
+        // Track what we've saved
+        savedMessageCountRef.current = agentState.messages.length;
+        lastSavedVersionRef.current = sessionState.codeVersion;
+      } else {
+        // Subsequent saves — PATCH
+        const update: any = { $set: payload };
+
+        // Push new conversation messages
+        const newMessages = agentState.messages.slice(savedMessageCountRef.current);
+        if (newMessages.length > 0) {
+          update.$push = {
+            conversation: newMessages.map((m) => ({
+              role: m.role === "assistant" ? "agent" : m.role,
+              content: m.content,
+              codeVersion: sessionState.codeVersion,
+              createdAt: new Date(),
+            })),
+          };
+          savedMessageCountRef.current = agentState.messages.length;
+        }
+
+        // Push code version if changed
+        if (sessionState.codeVersion > lastSavedVersionRef.current) {
+          if (!update.$push) update.$push = {};
+          update.$push.codeVersions = {
+            version: sessionState.codeVersion,
+            fullCode: fullGeneratedCode,
+            extractedML: fullGeneratedCode,
+            changeDescription: "Updated",
+            createdAt: new Date(),
+          };
+          lastSavedVersionRef.current = sessionState.codeVersion;
+        }
+
+        const res = await fetch(`/api/sessions/${sessionIdRef.current}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(update),
+        });
+        if (!res.ok) {
+          console.error("[Orchestrator] Failed to update session:", await res.text());
+        }
+      }
+    } catch (err) {
+      console.error("[Orchestrator] Save error:", err);
+    }
+  }, []);
+
+  // Debounced save
+  const debouncedSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(saveSession, 3000);
+  }, [saveSession]);
+
+  // beforeunload handler
+  useEffect(() => {
+    const handler = () => {
+      saveSession();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [saveSession]);
+
+  // ─── reigniteSession ────────────────────────────────────────────────────
+  const reigniteSession = useCallback(async (sessionId: string) => {
+    sessionIdRef.current = sessionId;
+    useSessionStore.getState().setReadOnly(false);
+
+    const res = await fetch(`/api/sessions/${sessionId}`);
+    if (!res.ok) {
+      setStatus("error");
+      addMessage({ role: "assistant", content: "Could not load session." });
+      return;
+    }
+    const session = await res.json();
+
+    // Restore state
+    if (session.currentCode?.full) {
+      setCode(session.currentCode.full);
+    }
+    if (session.currentCode?.version) {
+      useSessionStore.getState().setCodeVersion(session.currentCode.version);
+      lastSavedVersionRef.current = session.currentCode.version;
+    }
+    if (session.controls) {
+      useOutputStore.getState().setControls(session.controls);
+    }
+    if (session.conversation) {
+      session.conversation.forEach((msg: any) => {
+        addMessage({
+          role: msg.role === "agent" ? "assistant" : msg.role,
+          content: msg.content,
+        });
+      });
+      savedMessageCountRef.current = session.conversation.length;
+    }
+
+    // Re-run saved code in browser
+    if (session.currentCode?.full) {
+      setStatus("running");
+      const paramsLine = `params = ${JSON.stringify(session.currentParams || {})}\n`;
+      await runBrowser(paramsLine + session.currentCode.full, session.currentParams || {}, {
+        setAll: setOutput,
+        setStatus,
+      });
+    }
+  }, [setStatus, addMessage, setCode, setOutput]);
+
+  // ─── reigniteSharedSession ──────────────────────────────────────────────
+  const reigniteSharedSession = useCallback(async (shareToken: string) => {
+    useSessionStore.getState().setReadOnly(true);
+
+    const res = await fetch(`/api/sessions/share/${shareToken}`);
+    if (!res.ok) {
+      setStatus("error");
+      addMessage({ role: "assistant", content: "Could not load shared session." });
+      return;
+    }
+    const session = await res.json();
+
+    // Restore state
+    if (session.currentCode?.full) {
+      setCode(session.currentCode.full);
+    }
+    if (session.controls) {
+      useOutputStore.getState().setControls(session.controls);
+    }
+    if (session.conversation) {
+      session.conversation.forEach((msg: any) => {
+        addMessage({
+          role: msg.role === "agent" ? "assistant" : msg.role,
+          content: msg.content,
+        });
+      });
+    }
+
+    // Re-run saved code in browser
+    if (session.currentCode?.full) {
+      setStatus("running");
+      const paramsLine = `params = ${JSON.stringify(session.currentParams || {})}\n`;
+      await runBrowser(paramsLine + session.currentCode.full, session.currentParams || {}, {
+        setAll: setOutput,
+        setStatus,
+      });
+    }
+  }, [setStatus, addMessage, setCode, setOutput]);
+
+  // ─── shareSession ──────────────────────────────────────────────────────
+  const shareSession = useCallback(async (visibility: "private" | "link" | "public") => {
+    // Ensure session is saved first
+    if (!sessionIdRef.current) {
+      await saveSession();
+    }
+    if (!sessionIdRef.current) {
+      throw new Error("No session to share");
+    }
+
+    const res = await fetch(`/api/sessions/${sessionIdRef.current}/visibility`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility }),
+    });
+    if (!res.ok) {
+      throw new Error("Failed to update visibility");
+    }
+    return res.json();
+  }, [saveSession]);
+
+  // ─── submitIntent ───────────────────────────────────────────────────────
   const submitIntent = async (intent: string, mode: ExecutionMode) => {
     console.log(`[Orchestrator] New intent: "${intent}", mode: ${mode}`);
     resetOutput();
@@ -111,11 +345,17 @@ export function useOrchestrator() {
       console.log("[Orchestrator] Transitioning to execution...");
       setStatus("running");
 
+      // Increment code version
+      useSessionStore.getState().incrementVersion();
+
       if (mode === "browser") {
         const setupCode = "params = {}\n";
         const fullCode = setupCode + extractedCode;
         await runBrowser(fullCode, {}, { setAll: setOutput, setStatus, addMessage });
       }
+
+      // Auto-save after completion
+      debouncedSave();
     } catch (err: any) {
       console.error("[Orchestrator] Workflow failed:", err.message);
       setStatus("error");
@@ -123,17 +363,22 @@ export function useOrchestrator() {
     }
   };
 
+  // ─── runWithParams ──────────────────────────────────────────────────────
   const runWithParams = async (params: Record<string, any>) => {
     setStatus("running");
     const setupCode = `params = ${JSON.stringify(params)}\n`;
     const fullCode = setupCode + code;
-    // DO NOT pass addMessage here, so it only updates the state without adding a chat message
     await runBrowser(fullCode, params, { setAll: setOutput, setStatus });
   };
 
   return {
     submitIntent,
     runWithParams,
+    reigniteSession,
+    reigniteSharedSession,
+    shareSession,
+    saveSession,
+    sessionIdRef,
     isRunning: status === "running",
   };
 }

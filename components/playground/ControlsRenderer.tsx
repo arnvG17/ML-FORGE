@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { OutputControl } from "@/types";
 import { useOrchestrator } from "@/hooks/useOrchestrator";
 
@@ -21,7 +21,23 @@ export default function ControlsRenderer({
     return initial;
   });
 
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const { runWithParams } = useOrchestrator();
+
+  // Keep internal state in sync with external controls if they change
+  useEffect(() => {
+    setValues(v => {
+      const next = { ...v };
+      let changed = false;
+      for (const control of controls) {
+        if (!(control.targets_var in next)) {
+          next[control.targets_var] = control.default;
+          changed = true;
+        }
+      }
+      return changed ? next : v;
+    });
+  }, [controls]);
 
   const handleChange = (targetsVar: string, value: number | string) => {
     // 1. Update local state immediately for UI responsiveness
@@ -29,12 +45,11 @@ export default function ControlsRenderer({
     setValues(newValues);
 
     // 2. Debounce the actual Pyodide execution
-    const timerId = (window as any)._forge_debounce_timer;
-    if (timerId) clearTimeout(timerId);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
-    (window as any)._forge_debounce_timer = setTimeout(() => {
+    debounceTimerRef.current = setTimeout(() => {
       runWithParams(newValues);
-    }, 200); 
+    }, 250); 
   };
 
   return (

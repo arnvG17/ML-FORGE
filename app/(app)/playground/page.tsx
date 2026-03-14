@@ -2,14 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { createLocalSession } from "@/components/dashboard/SessionList";
 
 export default function NewPlaygroundPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const session = createLocalSession();
-    router.replace(`/playground/${session.id}`);
+    // Redirect to /playground/new which PlaygroundLayout handles as a fresh session
+    router.replace("/playground/new");
   }, [router]);
 
   return (

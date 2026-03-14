@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import CenterPanel from "./CenterPanel";
 import RightPanel from "./RightPanel";
 import { useAgentStore } from "@/store/agent";
+import { useSessionStore } from "@/store/session";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,8 @@ import { useOrchestrator } from "@/hooks/useOrchestrator";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { MorphingSquare } from "@/components/ui/morphing-square";
 import { TextEffect } from "@/components/ui/text-effect";
+
+import ChatPanel from "./ChatPanel";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -25,20 +28,101 @@ type Tab = "chat" | "preview" | "code";
 
 const HERO_COLORS = ["#10B981", "#EAB308", "#3B82F6", "#EF4444", "#8B5CF6", "#F97316", "#06B6D4", "#6366F1"];
 
+// ─── Share Popover ──────────────────────────────────────────────────────────
+function SharePopover({
+  onShare,
+  onClose,
+}: {
+  onShare: (v: "private" | "link" | "public") => Promise<void>;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<"private" | "link" | "public">("private");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleSelect = async (v: "private" | "link" | "public") => {
+    setSelected(v);
+    setLoading(true);
+    try {
+      await onShare(v);
+      if (v !== "private") {
+        // The shareSession returns the URL — we'll get it from the response
+        const res = await fetch(window.location.pathname.replace(/\/playground\/.*/, "") + "/api/sessions/" + window.location.pathname.split("/playground/")[1] + "/visibility", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibility: v }),
+        });
+        // Actually the shareSession already did this, let's just pick the URL from it
+      }
+    } catch (err) {
+      console.error("Share error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="absolute top-full right-0 mt-2 w-64 bg-black border border-white/10 z-50 font-mono">
+      <div className="p-3 space-y-1">
+        {(["private", "link", "public"] as const).map((v) => (
+          <button
+            key={v}
+            onClick={() => handleSelect(v)}
+            className={`w-full text-left px-3 py-2 transition-colors ${
+              selected === v ? "text-white bg-white/5" : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <div className="text-xs font-semibold capitalize">{v === "link" ? "Share link" : v}</div>
+            <div className="text-[10px] text-zinc-600 mt-0.5">
+              {v === "private" && "Only you can see this"}
+              {v === "link" && "Anyone with the link"}
+              {v === "public" && "Discoverable by everyone"}
+            </div>
+          </button>
+        ))}
+      </div>
+      {shareUrl && selected !== "private" && (
+        <div className="px-3 pb-3 flex gap-2">
+          <input
+            readOnly
+            value={shareUrl}
+            className="flex-1 bg-transparent border border-white/10 px-2 py-1 text-[10px] text-zinc-400 focus:outline-none"
+          />
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(shareUrl);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="text-[10px] px-2 py-1 border border-white/10 text-zinc-400 hover:text-white transition-colors"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const [heroColor, setHeroColor] = useState("#10B981");
   const [started, setStarted] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [isMobile, setIsMobile] = useState(false);
+  const [showShare, setShowShare] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [currentVisibility, setCurrentVisibility] = useState<"private" | "link" | "public">("private");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const messages = useAgentStore((s) => s.messages);
   const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing");
+  const isReadOnly = useSessionStore((s) => s.isReadOnly);
   
-  const { submitIntent } = useOrchestrator();
+  const { submitIntent, reigniteSession, shareSession, sessionIdRef } = useOrchestrator();
 
   useEffect(() => {
     setHeroColor(HERO_COLORS[Math.floor(Math.random() * HERO_COLORS.length)]);
@@ -47,6 +131,14 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Reignite existing session on mount
+  useEffect(() => {
+    if (sessionId && sessionId !== "new") {
+      setStarted(true);
+      reigniteSession(sessionId);
+    }
+  }, [sessionId, reigniteSession]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -86,97 +178,82 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     }
   };
 
-  const ChatPanel = () => (
-    <div className={cn("flex flex-col h-full bg-surface border-r border-border z-10 w-full")}>
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0 bg-surface/80 backdrop-blur-sm">
-        <span className="font-comico text-3xl tracking-tight text-primary mt-1">FORGE</span>
-        <span className="text-[10px] font-mono font-light text-muted">
-          {sessionId.slice(0, 8)}
-        </span>
-      </div>
+  const handleManualSend = async (val: string) => {
+    if (!val.trim() || isStreaming) return;
+    
+    if (!started) {
+      setStarted(true);
+    }
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 scrollbar-hide">
-        {messages.map((msg: Message, i: number) => (
-          <motion.div 
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            key={i} 
-            className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
-          >
-            <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold ${
-                msg.role === "user"
-                  ? "bg-white text-black"
-                  : "bg-black text-white border border-white/20"
-              }`}
-            >
-              {msg.role === "user" ? "Y" : "F"}
-            </div>
-            <div className="min-w-0 pt-0.5">
-              <div className={`p-3 rounded-2xl max-w-[100%] text-[13px] font-mono leading-relaxed shadow-sm
-                ${msg.role === "user" 
-                  ? "bg-black border border-white/20 text-white rounded-tr-sm" 
-                  : "bg-black border border-white/20 text-white rounded-tl-sm"}`}
+    await submitIntent(val.trim(), "browser");
+  };
+
+  const handleShare = async (visibility: "private" | "link" | "public") => {
+    try {
+      const result = await shareSession(visibility);
+      setCurrentVisibility(visibility);
+      if (visibility !== "private" && result.shareUrl) {
+        setShareUrl(result.shareUrl);
+      } else {
+        setShareUrl(null);
+      }
+    } catch (err) {
+      console.error("Share error:", err);
+    }
+  };
+
+  // Removed inline ChatPanel
+
+  // Share button for the status bar area
+  const ShareButton = () => (
+    <div className="relative">
+      <button
+        onClick={() => setShowShare(!showShare)}
+        className="text-[11px] font-mono text-zinc-500 hover:text-white px-3 py-1 border border-white/10 hover:border-white/30 transition-colors"
+      >
+        Share
+      </button>
+      {showShare && (
+        <div className="absolute top-full right-0 mt-2 w-64 bg-black border border-white/10 z-50 font-mono">
+          <div className="p-3 space-y-1">
+            {(["private", "link", "public"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => handleShare(v)}
+                className={`w-full text-left px-3 py-2 transition-colors ${
+                  currentVisibility === v ? "text-white bg-white/5" : "text-zinc-500 hover:text-zinc-300"
+                }`}
               >
-                <TextEffect per="word" preset="blur">
-                  {msg.content}
-                </TextEffect>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-        {isStreaming && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
-            <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold bg-black text-white border border-white/20">
-              F
-            </div>
-            <div className="pt-1">
-              <div className="flex items-center p-3 rounded-2xl bg-black border border-white/20 rounded-tl-sm">
-                <MorphingSquare className="w-3 h-3 bg-white" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="border-t border-white/5 p-4 shrink-0 bg-surface z-20">
-        <div className="relative border border-white/10 rounded-xl bg-[#111111]/80 backdrop-blur-xl focus-within:border-white/20 transition-all duration-300 shadow-lg flex flex-col min-h-[100px]">
-          <textarea
-            ref={textareaRef}
-            value={inputValue}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your request..."
-            rows={1}
-            disabled={isStreaming}
-            className="w-full bg-transparent text-white px-4 py-4 text-[13px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-zinc-500 focus:outline-none resize-none disabled:opacity-40 flex-1"
-          />
-          <div className="flex items-center justify-between px-3 pb-3">
-            <button className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 transition-colors duration-200">
-               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-              </svg>
-            </button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleSend}
-              disabled={!inputValue.trim() || isStreaming}
-              className="bg-[#222222] hover:bg-[#2a2a2a] disabled:opacity-20 text-white p-2 rounded-lg transition-all duration-200 shadow-sm border border-white/5"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m5 12 7-7 7 7M12 19V5" />
-              </svg>
-            </motion.button>
+                <div className="text-xs font-semibold capitalize">{v === "link" ? "Share link" : v}</div>
+                <div className="text-[10px] text-zinc-600 mt-0.5">
+                  {v === "private" && "Only you can see this"}
+                  {v === "link" && "Anyone with the link"}
+                  {v === "public" && "Discoverable by everyone"}
+                </div>
+              </button>
+            ))}
           </div>
+          {shareUrl && currentVisibility !== "private" && (
+            <div className="px-3 pb-3 border-t border-white/10 pt-3">
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 bg-transparent border border-white/10 px-2 py-1 text-[10px] text-zinc-400 focus:outline-none min-w-0"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl);
+                  }}
+                  className="text-[10px] px-2 py-1 border border-white/10 text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        {!isMobile && (
-          <div className="text-[10px] font-light text-muted font-mono mt-1.5 px-1">
-            Enter to send · Shift+Enter for new line
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 
@@ -266,7 +343,15 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
             {isMobile ? (
               <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex-1 overflow-hidden relative">
-                  {activeTab === "chat" && <ChatPanel />}
+                  {activeTab === "chat" && (
+                    <ChatPanel 
+                      sessionId={sessionId} 
+                      isMobile={true} 
+                      handleSend={handleManualSend}
+                      inputValue={inputValue}
+                      setInputValue={setInputValue}
+                    />
+                  )}
                   {activeTab === "preview" && (
                     <div className="h-full w-full bg-white overflow-y-auto">
                       <RightPanel sessionId={sessionId} />
@@ -318,19 +403,35 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
                     </svg>
                     <span className="text-[10px] font-mono uppercase tracking-tighter">Code</span>
                   </button>
+                  {!isReadOnly && (
+                    <div className="flex flex-col items-center gap-1">
+                      <ShareButton />
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <>
                 <ResizablePanelGroup direction="horizontal" className="flex-1 w-full">
                   <ResizablePanel defaultSize={30} minSize={20} collapsible={true}>
-                    <ChatPanel />
+                    <ChatPanel 
+                      sessionId={sessionId} 
+                      handleSend={handleManualSend}
+                      inputValue={inputValue}
+                      setInputValue={setInputValue}
+                    />
                   </ResizablePanel>
                   
                   <ResizableHandle withHandle className="bg-white/5 hover:bg-white/10 transition-colors" />
                   
                   <ResizablePanel defaultSize={55} minSize={30}>
                     <div className="h-full w-full bg-white relative overflow-hidden">
+                      {/* Share button overlay */}
+                      {!isReadOnly && (
+                        <div className="absolute top-2 right-2 z-30">
+                          <ShareButton />
+                        </div>
+                      )}
                       <RightPanel sessionId={sessionId} />
                     </div>
                   </ResizablePanel>
