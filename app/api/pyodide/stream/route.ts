@@ -7,8 +7,8 @@ export async function POST(req: Request) {
   console.log(`[API:${requestId}] POST /api/pyodide/stream`);
 
   try {
-    const { intent, mode } = await req.json();
-    console.log(`[API:${requestId}] Intent: "${intent.slice(0, 30)}...", Mode: ${mode}`);
+    const { intent, mode, context = [], skipThinking = false } = await req.json();
+    console.log(`[API:${requestId}] Intent: "${intent.slice(0, 30)}...", Mode: ${mode}, Context: ${context.length}, SkipThinking: ${skipThinking}`);
 
     if (!intent) {
       console.warn(`[API:${requestId}] Missing intent`);
@@ -16,16 +16,17 @@ export async function POST(req: Request) {
     }
 
     let plan = "";
-    if (mode === "browser") {
+    if (mode === "browser" && !skipThinking) {
       console.log(`[API:${requestId}] Stage 1: Thinking...`);
       plan = await thinkAboutIntent(intent);
       console.log(`[API:${requestId}] Technical Plan:\n${plan}`);
     }
 
     console.log(`[API:${requestId}] Stage 2: Streaming Code...`);
+    // Pass context to streamPyodideScript
     const stream = mode === "server" 
       ? streamFlaskApp(intent) 
-      : streamPyodideScript(intent, plan);
+      : streamPyodideScript(intent, context);
     
     const encoder = new TextEncoder();
     console.log(`[API:${requestId}] Initializing stream...`);

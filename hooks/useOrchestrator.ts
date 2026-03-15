@@ -6,58 +6,34 @@ import { useOutputStore } from "@/store/output";
 import { useSessionStore } from "@/store/session";
 import { extractMLCode } from "@/lib/extractMLCode";
 import { runInBrowser } from "@/lib/pyodide-runner";
+import { buildRepairPrompt, trimContext } from "@/lib/llm";
 
 export type ExecutionMode = "browser" | "server" | "upload" | "advanced";
 
-async function streamAndStore(intent: string, mode: ExecutionMode, streamTokens: AsyncGenerator<string>, config: {
-  setStatus: (status: any) => void;
-  appendCode: (token: string) => void;
-}) {
-  config.setStatus("writing");
-  for await (const token of streamTokens) {
-    config.appendCode(token);
-  }
-}
-
-async function runBrowser(code: string, params: Record<string, any>, config: {
-  setAll: (data: any) => void;
-  setStatus: (status: any) => void;
-  addMessage?: (msg: any) => void;
-}) {
-  try {
-    const result = await runInBrowser(code);
-    
-    if (result.errors && result.errors.length > 0) {
-      config.setAll({ errors: result.errors });
-      config.setStatus("error");
-      if (config.addMessage) {
-        config.addMessage({ role: "assistant", content: `Execution error: ${result.errors.join(", ")}` });
-      }
-      return;
-    }
-
-    config.setAll({
-      metrics: result.metrics,
-      plots: result.plots,
-      controls: result.controls,
-      explanation: result.explanation,
-      errors: [],
-    });
-    config.setStatus("done");
-    
-    if (config.addMessage) {
-      const messageContent = result.explanation || "Execution completed successfully.";
-      config.addMessage({ role: "assistant", content: messageContent });
-    }
-  } catch (err: any) {
-    config.setAll({ errors: [err.message] });
-    config.setStatus("error");
-  }
-}
-
 export function useOrchestrator() {
-  const { status, setStatus, code, setCode, appendCode, addMessage, reset: resetAgent } = useAgentStore();
+  const {
+    status,
+    setStatus,
+    code,
+    setCode,
+    appendCode,
+    addMessage,
+    reset: resetAgent,
+  } = useAgentStore();
   const { setAll: setOutput, reset: resetOutput } = useOutputStore();
+
+  const {
+    llmContext,
+    appendLLMContext,
+    clearLLMContext,
+    setLLMContext,
+    repairAttempt,
+    setRepairAttempt,
+    resetSession: resetSessionState,
+    codeVersion,
+    incrementVersion,
+    setCodeVersion,
+  } = useSessionStore();
 
   const sessionIdRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,7 +51,8 @@ export function useOrchestrator() {
     const outputState = useOutputStore.getState();
     const sessionState = useSessionStore.getState();
 
-    if (agentState.status !== "done") return;
+    // We save if status is done OR if it's error after attempts
+    if (agentState.status !== "done" && agentState.status !== "error") return;
 
     const fullGeneratedCode = agentState.code;
     const controls = outputState.controls;
@@ -96,6 +73,10 @@ export function useOrchestrator() {
       executionMode: "browser",
       intent: agentState.messages[0]?.content ?? "",
       name: (agentState.messages[0]?.content ?? "Untitled").slice(0, 60),
+      llmContext: trimContext(sessionState.llmContext).map((msg) => ({
+        ...msg,
+        createdAt: new Date(),
+      })),
     };
 
     try {
@@ -107,7 +88,10 @@ export function useOrchestrator() {
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
-          console.error("[Orchestrator] Failed to create session:", await res.text());
+          console.error(
+            "[Orchestrator] Failed to create session:",
+            await res.text()
+          );
           return;
         }
         const data = await res.json();
@@ -124,7 +108,9 @@ export function useOrchestrator() {
         const update: any = { $set: payload };
 
         // Push new conversation messages
-        const newMessages = agentState.messages.slice(savedMessageCountRef.current);
+        const newMessages = agentState.messages.slice(
+          savedMessageCountRef.current
+        );
         if (newMessages.length > 0) {
           update.$push = {
             conversation: newMessages.map((m) => ({
@@ -156,7 +142,10 @@ export function useOrchestrator() {
           body: JSON.stringify(update),
         });
         if (!res.ok) {
-          console.error("[Orchestrator] Failed to update session:", await res.text());
+          console.error(
+            "[Orchestrator] Failed to update session:",
+            await res.text()
+          );
         }
       }
     } catch (err) {
@@ -172,6 +161,39 @@ export function useOrchestrator() {
     saveTimeoutRef.current = setTimeout(saveSession, 3000);
   }, [saveSession]);
 
+  // ─── capturedStream ─────────────────────────────────────────────────────
+  const capturedStream = useCallback(
+    async function* (
+      intent: string,
+      mode: ExecutionMode,
+      context: any[] = [],
+      skipThinking: boolean = false
+    ) {
+      const response = await fetch("/api/pyodide/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intent, mode, context, skipThinking }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to stream from LLM");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          yield decoder.decode(value);
+        }
+      }
+    },
+    []
+  );
+
   // beforeunload handler
   useEffect(() => {
     const handler = () => {
@@ -186,180 +208,318 @@ export function useOrchestrator() {
     };
   }, [saveSession]);
 
+  // ─── runWithRepairLoop ──────────────────────────────────────────────────
+  const runWithRepairLoop = async (
+    initialCode: string,
+    maxAttempts: number = 5
+  ): Promise<string | null> => {
+    let currentCode = initialCode;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      setStatus(attempt === 1 ? "running" : "fixing");
+      setRepairAttempt(attempt);
+
+      try {
+        const outputState = useOutputStore.getState();
+        const currentParams = outputState.controls.reduce((acc, c) => {
+          acc[c.targets_var] = c.default;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const paramsLine = `params = ${JSON.stringify(currentParams)}\n`;
+        const result = await runInBrowser(paramsLine + currentCode);
+
+        const hasErrors = result.errors && result.errors.length > 0;
+
+        // Success check: No errors
+        if (!hasErrors) {
+          setOutput({
+            metrics: result.metrics,
+            plots: result.plots,
+            controls: result.controls,
+            explanation: result.explanation,
+            errors: [],
+          });
+          return currentCode;
+        }
+
+        // Error detected - Build repair prompt
+        if (attempt === 1) {
+          addMessage({ role: "assistant", content: "I encountered an error. Let me fix that for you..." });
+        }
+
+        if (attempt === maxAttempts) {
+          setStatus("error");
+          addMessage({
+            role: "assistant",
+            content: `I've tried fixing this multiple times but could not resolve the issue. Please try describing your request differently.`,
+          });
+          return null;
+        }
+
+        const errorText = result.errors.join("\n");
+        const repairPrompt = buildRepairPrompt(errorText, currentCode);
+
+        appendLLMContext("user", repairPrompt);
+
+        let repairedCode = "";
+        const context = useSessionStore.getState().llmContext;
+        const trimmed = trimContext(context);
+
+        // Call API for repair instead of direct LLM function
+        for await (const token of capturedStream(
+          repairPrompt,
+          "browser",
+          trimmed,
+          true
+        )) {
+          repairedCode += token;
+        }
+
+        repairedCode = extractMLCode(repairedCode);
+
+        // Validate repair is not suspiciously short
+        if (repairedCode.length < 30) {
+          appendLLMContext("assistant", "[Repair attempt returned invalid output]");
+          continue;
+        }
+
+        appendLLMContext("assistant", repairedCode);
+        currentCode = repairedCode;
+
+        setCode(repairedCode);
+      } catch (err: any) {
+        const errorText = err.message ?? String(err);
+        if (attempt === 1) {
+          addMessage({ role: "assistant", content: "I encountered a technical issue. Let me try to fix it..." });
+        }
+        if (attempt === maxAttempts) {
+          setStatus("error");
+          addMessage({
+            role: "assistant",
+            content: "I'm sorry, I couldn't resolve the issue after several attempts. Please try again.",
+          });
+          return null;
+        }
+        // Build repair for JS exception
+        const repairPrompt = buildRepairPrompt(errorText, currentCode);
+        appendLLMContext("user", repairPrompt);
+
+        let repairedCode = "";
+        const context = useSessionStore.getState().llmContext;
+        for await (const token of capturedStream(
+          repairPrompt,
+          "browser",
+          trimContext(context),
+          true
+        )) {
+          repairedCode += token;
+        }
+        repairedCode = extractMLCode(repairedCode);
+        appendLLMContext("assistant", repairedCode);
+        currentCode = repairedCode;
+        setCode(repairedCode);
+      }
+    }
+
+    return null;
+  };
+
   // ─── reigniteSession ────────────────────────────────────────────────────
-  const reigniteSession = useCallback(async (sessionId: string) => {
-    sessionIdRef.current = sessionId;
-    useSessionStore.getState().setReadOnly(false);
+  const reigniteSession = useCallback(
+    async (sessionId: string) => {
+      sessionIdRef.current = sessionId;
+      useSessionStore.getState().setReadOnly(false);
 
-    const res = await fetch(`/api/sessions/${sessionId}`);
-    if (!res.ok) {
-      setStatus("error");
-      addMessage({ role: "assistant", content: "Could not load session." });
-      return;
-    }
-    const session = await res.json();
+      const res = await fetch(`/api/sessions/${sessionId}`);
+      if (!res.ok) {
+        setStatus("error");
+        addMessage({ role: "assistant", content: "Could not load session." });
+        return;
+      }
+      const session = await res.json();
 
-    // Restore state
-    if (session.currentCode?.full) {
-      setCode(session.currentCode.full);
-    }
-    if (session.currentCode?.version) {
-      useSessionStore.getState().setCodeVersion(session.currentCode.version);
-      lastSavedVersionRef.current = session.currentCode.version;
-    }
-    if (session.controls) {
-      useOutputStore.getState().setControls(session.controls);
-    }
-    if (session.conversation) {
-      session.conversation.forEach((msg: any) => {
-        addMessage({
-          role: msg.role === "agent" ? "assistant" : msg.role,
-          content: msg.content,
+      // Restore state
+      if (session.currentCode?.full) {
+        setCode(session.currentCode.full);
+      }
+      if (session.currentCode?.version) {
+        setCodeVersion(session.currentCode.version);
+        lastSavedVersionRef.current = session.currentCode.version;
+      }
+      if (session.controls) {
+        useOutputStore.getState().setControls(session.controls);
+      }
+      if (session.conversation) {
+        session.conversation.forEach((msg: any) => {
+          addMessage({
+            role: msg.role === "agent" ? "assistant" : msg.role,
+            content: msg.content,
+          });
         });
-      });
-      savedMessageCountRef.current = session.conversation.length;
-    }
+        savedMessageCountRef.current = session.conversation.length;
+      }
 
-    // Re-run saved code in browser
-    if (session.currentCode?.full) {
-      setStatus("running");
-      const paramsLine = `params = ${JSON.stringify(session.currentParams || {})}\n`;
-      await runBrowser(paramsLine + session.currentCode.full, session.currentParams || {}, {
-        setAll: setOutput,
-        setStatus,
-      });
-    }
-  }, [setStatus, addMessage, setCode, setOutput]);
+      // Restore LLM Context
+      if (session.llmContext && session.llmContext.length > 0) {
+        setLLMContext(session.llmContext);
+      } else if (session.currentCode?.full) {
+        // Fallback reconstruction for old sessions
+        setLLMContext([
+          { role: "user", content: session.intent || "build this ML tool" },
+          { role: "assistant", content: session.currentCode.full },
+        ]);
+      }
+
+      // Re-run saved code in browser
+      if (session.currentCode?.full) {
+        setStatus("running");
+        await runWithRepairLoop(session.currentCode.full);
+        setStatus("done");
+      }
+    },
+    [setStatus, addMessage, setCode, setLLMContext, setCodeVersion, runWithRepairLoop]
+  );
 
   // ─── reigniteSharedSession ──────────────────────────────────────────────
-  const reigniteSharedSession = useCallback(async (shareToken: string) => {
-    useSessionStore.getState().setReadOnly(true);
+  const reigniteSharedSession = useCallback(
+    async (shareToken: string) => {
+      useSessionStore.getState().setReadOnly(true);
 
-    const res = await fetch(`/api/sessions/share/${shareToken}`);
-    if (!res.ok) {
-      setStatus("error");
-      addMessage({ role: "assistant", content: "Could not load shared session." });
-      return;
-    }
-    const session = await res.json();
-
-    // Restore state
-    if (session.currentCode?.full) {
-      setCode(session.currentCode.full);
-    }
-    if (session.controls) {
-      useOutputStore.getState().setControls(session.controls);
-    }
-    if (session.conversation) {
-      session.conversation.forEach((msg: any) => {
+      const res = await fetch(`/api/sessions/share/${shareToken}`);
+      if (!res.ok) {
+        setStatus("error");
         addMessage({
-          role: msg.role === "agent" ? "assistant" : msg.role,
-          content: msg.content,
+          role: "assistant",
+          content: "Could not load shared session.",
         });
-      });
-    }
+        return;
+      }
+      const session = await res.json();
 
-    // Re-run saved code in browser
-    if (session.currentCode?.full) {
-      setStatus("running");
-      const paramsLine = `params = ${JSON.stringify(session.currentParams || {})}\n`;
-      await runBrowser(paramsLine + session.currentCode.full, session.currentParams || {}, {
-        setAll: setOutput,
-        setStatus,
-      });
-    }
-  }, [setStatus, addMessage, setCode, setOutput]);
+      // Restore state
+      if (session.currentCode?.full) {
+        setCode(session.currentCode.full);
+      }
+      if (session.controls) {
+        useOutputStore.getState().setControls(session.controls);
+      }
+      if (session.conversation) {
+        session.conversation.forEach((msg: any) => {
+          addMessage({
+            role: msg.role === "agent" ? "assistant" : msg.role,
+            content: msg.content,
+          });
+        });
+      }
+
+      // Restore LLM Context
+      if (session.llmContext && session.llmContext.length > 0) {
+        setLLMContext(session.llmContext);
+      } else if (session.currentCode?.full) {
+        setLLMContext([
+          { role: "user", content: session.intent || "build this ML tool" },
+          { role: "assistant", content: session.currentCode.full },
+        ]);
+      }
+
+      // Re-run saved code in browser
+      if (session.currentCode?.full) {
+        setStatus("running");
+        await runWithRepairLoop(session.currentCode.full);
+        setStatus("done");
+      }
+    },
+    [setStatus, addMessage, setCode, setLLMContext, runWithRepairLoop]
+  );
 
   // ─── shareSession ──────────────────────────────────────────────────────
-  const shareSession = useCallback(async (visibility: "private" | "link" | "public") => {
-    // Ensure session is saved first
-    if (!sessionIdRef.current) {
-      await saveSession();
-    }
-    if (!sessionIdRef.current) {
-      throw new Error("No session to share");
-    }
+  const shareSession = useCallback(
+    async (visibility: "private" | "link" | "public") => {
+      // Ensure session is saved first
+      if (!sessionIdRef.current) {
+        await saveSession();
+      }
+      if (!sessionIdRef.current) {
+        throw new Error("No session to share");
+      }
 
-    const res = await fetch(`/api/sessions/${sessionIdRef.current}/visibility`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visibility }),
-    });
-    if (!res.ok) {
-      throw new Error("Failed to update visibility");
-    }
-    return res.json();
-  }, [saveSession]);
+      const res = await fetch(
+        `/api/sessions/${sessionIdRef.current}/visibility`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ visibility }),
+        }
+      );
+      if (!res.ok) {
+        throw new Error("Failed to update visibility");
+      }
+      return res.json();
+    },
+    [saveSession]
+  );
 
   // ─── submitIntent ───────────────────────────────────────────────────────
   const submitIntent = async (intent: string, mode: ExecutionMode) => {
     console.log(`[Orchestrator] New intent: "${intent}", mode: ${mode}`);
     resetOutput();
+
+    const currentContext = useSessionStore.getState().llmContext;
+    const isModification = currentContext.length > 0;
+
+    if (!isModification) {
+      resetSessionState();
+      clearLLMContext();
+    }
+
     setStatus("thinking");
     setCode("");
     addMessage({ role: "user", content: intent });
 
     let fullGeneratedCode = "";
-    async function* capturedStream() {
-      console.log("[Orchestrator] Fetching stream from /api/pyodide/stream...");
-      const response = await fetch("/api/pyodide/stream", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent, mode }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[Orchestrator] API error:", errorText);
-        throw new Error(errorText || "Failed to stream from LLM");
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (reader) {
-        let tokenCount = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const token = decoder.decode(value);
-          fullGeneratedCode += token;
-          tokenCount++;
-          yield token;
-        }
-        console.log(`[Orchestrator] Stream received. Tokens: ${tokenCount}`);
-      }
-    }
-
     try {
-      await streamAndStore(intent, mode, capturedStream(), { setStatus, appendCode });
-      
-      console.log("[Orchestrator] RAW GENERATED CODE:\n", fullGeneratedCode);
-      
-      console.log("[Orchestrator] Cleaning generated code...");
+      setStatus("writing");
+
+      // Step 1: Generate code
+      for await (const token of capturedStream(
+        intent,
+        mode,
+        isModification ? trimContext(currentContext) : [],
+        isModification
+      )) {
+        fullGeneratedCode += token;
+        appendCode(token);
+      }
+
       const extractedCode = extractMLCode(fullGeneratedCode);
       setCode(extractedCode);
-      
-      console.log("[Orchestrator] EXTRACTED CODE TO RUN:\n", extractedCode);
-      
-      console.log("[Orchestrator] Transitioning to execution...");
-      setStatus("running");
 
-      // Increment code version
-      useSessionStore.getState().incrementVersion();
+      // Append to LLM context
+      appendLLMContext("user", intent);
+      appendLLMContext("assistant", fullGeneratedCode);
 
-      if (mode === "browser") {
-        const setupCode = "params = {}\n";
-        const fullCode = setupCode + extractedCode;
-        await runBrowser(fullCode, {}, { setAll: setOutput, setStatus, addMessage });
-      }
+      // Step 2: Auto-repair loop
+      incrementVersion();
+      const finalCode = await runWithRepairLoop(extractedCode);
+      if (!finalCode) return; // Loop gave up or error
+
+      // Step 3: Show results
+      setStatus("done");
+      addMessage({
+        role: "assistant",
+        content: "Built and running. Adjust the controls to explore.",
+      });
 
       // Auto-save after completion
       debouncedSave();
     } catch (err: any) {
       console.error("[Orchestrator] Workflow failed:", err.message);
       setStatus("error");
-      addMessage({ role: "assistant", content: `Workflow error: ${err.message}` });
+      addMessage({
+        role: "assistant",
+        content: "I'm sorry, I'm having trouble with the connection. Please try again in a moment.",
+      });
     }
   };
 
@@ -368,7 +528,15 @@ export function useOrchestrator() {
     setStatus("running");
     const setupCode = `params = ${JSON.stringify(params)}\n`;
     const fullCode = setupCode + code;
-    await runBrowser(fullCode, params, { setAll: setOutput, setStatus });
+    const result = await runInBrowser(fullCode);
+    setOutput({
+      metrics: result.metrics,
+      plots: result.plots,
+      controls: result.controls,
+      explanation: result.explanation,
+      errors: result.errors,
+    });
+    setStatus(result.errors.length > 0 ? "error" : "done");
   };
 
   return {
@@ -379,6 +547,6 @@ export function useOrchestrator() {
     shareSession,
     saveSession,
     sessionIdRef,
-    isRunning: status === "running",
+    isRunning: status === "running" || status === "fixing",
   };
 }

@@ -3,6 +3,7 @@ export type SessionStatus =
   | "thinking"
   | "writing"
   | "running"
+  | "fixing"
   | "done"
   | "error";
 

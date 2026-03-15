@@ -1,10 +1,6 @@
 import { MongoClient, Db } from "mongodb";
 
-const uri = process.env.MONGODB_URI!;
-
-if (!uri) {
-  throw new Error("Please add MONGODB_URI to .env.local");
-}
+const uri = process.env.MONGODB_URI;
 
 interface MongoCache {
   client: MongoClient | null;
@@ -32,6 +28,10 @@ let _indexesEnsured = false;
 export async function connectToDatabase(): Promise<{ client: MongoClient; db: Db }> {
   if (cache.client && cache.db) {
     return { client: cache.client, db: cache.db };
+  }
+
+  if (!uri) {
+    throw new Error("MONGODB_URI is not defined");
   }
 
   if (!cache.promise) {

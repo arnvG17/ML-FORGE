@@ -43,6 +43,12 @@ export interface ForgeSession {
     createdAt: Date;
   }>;
 
+  llmContext?: Array<{
+    role: "user" | "assistant";
+    content: string;
+    createdAt?: Date;
+  }>;
+
   createdAt: Date;
   updatedAt: Date;
   lastOpenedAt: Date;
@@ -87,6 +93,7 @@ export async function createSession(
     lastMetrics: data.lastMetrics || {},
     codeVersions: data.codeVersions || [],
     conversation: data.conversation || [],
+    llmContext: data.llmContext || [],
     createdAt: now,
     updatedAt: now,
     lastOpenedAt: now,
@@ -149,13 +156,44 @@ export async function loadSessionById(
 }
 
 export async function loadSessionByShareToken(
-  shareToken: string
+  shareToken: string,
+  includeLLMContext: boolean = true
 ): Promise<ForgeSession | null> {
   const col = await getCollection("sessions");
-  const doc = await col.findOne({
-    shareToken,
-    visibility: { $ne: "private" },
-  });
+  const projection: any = {
+    visibility: 1,
+    userId: 1,
+    sessionId: 1,
+    shareToken: 1,
+    name: 1,
+    intent: 1,
+    executionMode: 1,
+    forkOf: 1,
+    forkCount: 1,
+    rating: 1,
+    ratingCount: 1,
+    currentCode: 1,
+    controls: 1,
+    currentParams: 1,
+    lastMetrics: 1,
+    codeVersions: 1,
+    conversation: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    lastOpenedAt: 1,
+  };
+
+  if (!includeLLMContext) {
+    projection.llmContext = 0;
+  }
+
+  const doc = await col.findOne(
+    {
+      shareToken,
+      visibility: { $ne: "private" },
+    },
+    { projection }
+  );
   if (!doc) return null;
   // Strip userId from returned doc
   const { userId: _u, ...publicDoc } = doc;

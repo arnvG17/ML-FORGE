@@ -33,7 +33,7 @@ export default function ChatPanel({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const messages = useAgentStore((s) => s.messages);
-  const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing");
+  const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing" || s.status === "fixing");
   const isReadOnly = useSessionStore((s) => s.isReadOnly);
 
   useEffect(() => {

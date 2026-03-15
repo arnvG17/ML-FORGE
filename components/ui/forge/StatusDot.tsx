@@ -12,12 +12,16 @@ const statusColors: Record<SessionStatus, string> = {
   running: "#FFFFFF",
   done: "#888888",
   error: "#FFFFFF",
+  fixing: "#FFFFFF",
 };
 
 export function StatusDot({ status }: StatusDotProps) {
   const color = statusColors[status];
   const isPulsing =
-    status === "thinking" || status === "writing" || status === "running";
+    status === "thinking" ||
+    status === "writing" ||
+    status === "running" ||
+    status === "fixing";
 
   return (
     <span

@@ -26,18 +26,47 @@ async function* streamWithFallback(prompt: string, preferGemini = false) {
   }
 }
 
-async function* streamGroq(prompt: string, start: number) {
+/**
+ * Filters the LLM context to keep early intent and recent messages.
+ */
+export function trimContext(
+  context: Array<{ role: string; content: string }>,
+  maxMessages: number = 10
+): Array<{ role: string; content: string }> {
+  if (context.length <= maxMessages) return context;
+  return [
+    ...context.slice(0, 2),
+    {
+      role: "user",
+      content: "[Earlier conversation trimmed for length]",
+    },
+    ...context.slice(-6),
+  ];
+}
+
+async function* streamGroq(
+  prompt: string,
+  start: number,
+  context: Array<{ role: string; content: string }> = []
+) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is missing");
 
   console.log("[LLM] Attempting Groq (llama-3.3-70b-versatile)...");
   const groq = new Groq({ apiKey });
+
+  const messages: any[] = [{ role: "system", content: PYODIDE_SYSTEM_PROMPT }];
+  if (context.length > 0) {
+    messages.push(...context);
+  }
+  messages.push({ role: "user", content: prompt });
+
   const stream = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
     temperature: 0.1,
     max_tokens: 8192,
     stream: true,
-    messages: [{ role: "user", content: prompt }],
+    messages,
   });
 
   let tokenCount = 0;
@@ -51,18 +80,33 @@ async function* streamGroq(prompt: string, start: number) {
   console.log(`[LLM] Groq stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
 }
 
-async function* streamGemini(prompt: string, start: number) {
-  const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+async function* streamGemini(
+  prompt: string,
+  start: number,
+  context: Array<{ role: string; content: string }> = []
+) {
+  const geminiKey =
+    process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!geminiKey) throw new Error("No Gemini API keys found");
 
   console.log("[LLM] Attempting Gemini (gemini-2.0-flash)...");
   const genAI = new GoogleGenerativeAI(geminiKey);
   const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
+    systemInstruction: PYODIDE_SYSTEM_PROMPT,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
   });
-  
-  const result = await model.generateContentStream(prompt);
+
+  const history = context.map((msg) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }],
+  }));
+
+  const chat = model.startChat({
+    history,
+  });
+
+  const result = await chat.sendMessageStream(prompt);
   let tokenCount = 0;
   for await (const chunk of result.stream) {
     const text = chunk.text();
@@ -99,10 +143,10 @@ async function thinkWithFallback(prompt: string, preferGemini = false): Promise<
 }
 
 async function thinkGroq(prompt: string, start: number): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is missing");
+  const apiKey = process.env.GROQ_API_KEY2;
+  if (!apiKey) throw new Error("GROQ_API_KEY2 is missing");
 
-  console.log("[LLM] Thinker: Attempting Groq (llama-3.3-70b-versatile)...");
+  console.log("[LLM] Thinker: Attempting Groq (llama-3.3-70b-versatile) with API KEY 2...");
   const groq = new Groq({ apiKey });
   const completion = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
@@ -229,12 +273,68 @@ export async function thinkAboutIntent(intent: string) {
   return await thinkWithFallback(prompt, true);
 }
 
-export async function* streamPyodideScript(intent: string, plan?: string) {
-  const context = plan ? `\n\nTECHNICAL PLAN TO FOLLOW:\n${plan}` : "";
-  const prompt = PYODIDE_SYSTEM_PROMPT + context + "\n\nUser intent: " + intent;
+export function buildRepairPrompt(
+  errorMessage: string,
+  failedCode: string
+): string {
+  return `The code produced this error in Pyodide:\n\n` +
+    `ERROR:\n${errorMessage}\n\n` +
+    `FAILED CODE:\n${failedCode}\n\n` +
+    `Fix the error. Return the complete corrected Python ` +
+    `file with the same structure. Raw Python only. ` +
+    `No backticks. No explanation. forge_result at the ` +
+    `end. FORGE_ML_START and FORGE_ML_END markers must ` +
+    `be present. Do not change anything that was working.`;
+}
+
+export async function* streamPyodideScript(
+  intent: string,
+  context: Array<{ role: string; content: string }> = []
+) {
+  const prompt = intent;
   // Stage 2: Prefer Groq
-  for await (const token of streamWithFallback(prompt, false)) {
-    yield token;
+  const start = Date.now();
+  const trimmed = trimContext(context);
+
+  try {
+    yield* streamGroq(prompt, start, trimmed);
+  } catch (e) {
+    console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+    yield* streamGemini(prompt, start, trimmed);
+  }
+}
+
+export async function* streamRepairCode(
+  errorMessage: string,
+  failedCode: string,
+  context: Array<{ role: string; content: string }>
+): AsyncGenerator<string> {
+  const prompt = buildRepairPrompt(errorMessage, failedCode);
+  const start = Date.now();
+  const trimmed = trimContext(context);
+
+  try {
+    yield* streamGroq(prompt, start, trimmed);
+  } catch (e) {
+    console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+    yield* streamGemini(prompt, start, trimmed);
+  }
+}
+
+export async function* streamModifiedCode(
+  changeRequest: string,
+  existingCode: string,
+  context: Array<{ role: string; content: string }> = []
+): AsyncGenerator<string> {
+  const prompt = changeRequest;
+  const start = Date.now();
+  const trimmed = trimContext(context);
+
+  try {
+    yield* streamGroq(prompt, start, trimmed);
+  } catch (e) {
+    console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+    yield* streamGemini(prompt, start, trimmed);
   }
 }
 

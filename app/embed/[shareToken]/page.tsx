@@ -45,53 +45,46 @@ export default function EmbedPage() {
   }
 
   return (
-    <html lang="en">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body>
-        <div className="min-h-screen bg-black text-white flex flex-col">
-          {status === "running" && (
-            <div className="px-4 pt-4 pb-2">
-              <span className="text-[10px] font-mono text-zinc-500">Running...</span>
-            </div>
-          )}
+    <div className="min-h-screen bg-black text-white flex flex-col">
+      {status === "running" && (
+        <div className="px-4 pt-4 pb-2">
+          <span className="text-[10px] font-mono text-zinc-500">Running...</span>
+        </div>
+      )}
 
-          {controls.length > 0 && (
-            <div className="px-4 py-4 border-b border-white/10">
-              <ControlsRenderer controls={controls} sessionId={shareToken} />
-            </div>
-          )}
+      {controls.length > 0 && (
+        <div className="px-4 py-4 border-b border-white/10">
+          <ControlsRenderer controls={controls} sessionId={shareToken} />
+        </div>
+      )}
 
-          {Object.keys(metrics).length > 0 && (
-            <div className="px-4 py-4 border-b border-white/10">
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(metrics).map(([key, value]) => (
-                  <MetricCard key={key} label={key} value={value} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(plots).length > 0 && (
-            <div className="px-4 py-4">
-              {Object.entries(plots).map(([name, base64]) => (
-                <PlotViewer key={name} name={name} base64={base64 as string} />
-              ))}
-            </div>
-          )}
-
-          <div className="mt-auto px-4 py-3 text-right">
-            <Link
-              href={`/p/${shareToken}`}
-              target="_blank"
-              className="text-[10px] font-mono text-zinc-600 hover:text-white transition-colors"
-            >
-              Open in Forge →
-            </Link>
+      {Object.keys(metrics).length > 0 && (
+        <div className="px-4 py-4 border-b border-white/10">
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(metrics).map(([key, value]) => (
+              <MetricCard key={key} label={key} value={value} />
+            ))}
           </div>
         </div>
-      </body>
-    </html>
+      )}
+
+      {Object.keys(plots).length > 0 && (
+        <div className="px-4 py-4">
+          {Object.entries(plots).map(([name, base64]) => (
+            <PlotViewer key={name} name={name} base64={base64 as string} />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-auto px-4 py-3 text-right">
+        <Link
+          href={`/p/${shareToken}`}
+          target="_blank"
+          className="text-[10px] font-mono text-zinc-600 hover:text-white transition-colors"
+        >
+          Open in Forge →
+        </Link>
+      </div>
+    </div>
   );
 }
