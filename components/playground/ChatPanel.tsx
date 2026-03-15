@@ -100,8 +100,8 @@ export default function ChatPanel({
             <div
               className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-mono font-bold ${
                 msg.role === "user"
-                  ? "bg-white text-black"
-                  : "bg-black text-white border border-white/20"
+                  ? "bg-primary text-white"
+                  : "bg-elevated text-foreground border border-border"
               }`}
             >
               {msg.role === "user" ? "Y" : "F"}
@@ -125,8 +125,8 @@ export default function ChatPanel({
               F
             </div>
             <div className="pt-1">
-              <div className="flex items-center p-3 rounded-2xl bg-black border border-white/20 rounded-tl-sm">
-                <MorphingSquare className="w-3 h-3 bg-white" />
+              <div className="flex items-center p-3 rounded-2xl bg-elevated border border-border rounded-tl-sm">
+                <MorphingSquare className="w-3 h-3 bg-primary" />
               </div>
             </div>
           </motion.div>
@@ -135,8 +135,8 @@ export default function ChatPanel({
       </div>
 
       {!isReadOnly && (
-        <div className="border-t border-white/5 p-4 shrink-0 bg-surface z-20">
-          <div className="relative border border-white/10 rounded-xl bg-[#111111]/80 backdrop-blur-xl focus-within:border-white/20 transition-all duration-300 shadow-lg flex flex-col min-h-[100px]">
+        <div className="border-t border-border p-4 shrink-0 bg-surface z-20">
+          <div className="relative border border-border rounded-xl bg-background/80 backdrop-blur-xl focus-within:border-primary/20 transition-all duration-300 shadow-lg flex flex-col min-h-[100px]">
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -145,10 +145,10 @@ export default function ChatPanel({
               placeholder="Type your request..."
               rows={1}
               disabled={isStreaming}
-              className="w-full bg-transparent text-white px-4 py-4 text-[13px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-zinc-500 focus:outline-none resize-none disabled:opacity-40 flex-1"
+              className="w-full bg-transparent text-foreground px-4 py-4 text-[13px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-muted focus:outline-none resize-none disabled:opacity-40 flex-1"
             />
             <div className="flex items-center justify-between px-3 pb-3">
-              <button className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 transition-colors duration-200">
+              <button className="p-1.5 rounded-lg hover:bg-foreground/5 text-muted transition-colors duration-200">
                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                 </svg>

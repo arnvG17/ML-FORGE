@@ -20,7 +20,7 @@ export default function RightPanel({ sessionId }: RightPanelProps) {
   const explanation = useOutputStore((s) => s.explanation);
 
   return (
-    <div className="h-full w-full flex flex-col overflow-y-auto bg-black text-white pb-6 px-1">
+    <div className="h-full w-full flex flex-col overflow-y-auto bg-background text-foreground pb-6 px-1">
       {explanation && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}

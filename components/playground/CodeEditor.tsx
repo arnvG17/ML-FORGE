@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useAgentStore } from "@/store/agent";
 import { TextEffect } from "@/components/ui/text-effect";
+import { useTheme } from "next-themes";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
@@ -34,12 +35,12 @@ export default function CodeEditor({ code }: CodeEditorProps) {
   // Use Cinematic Mode (TextEffect) during streaming or on mobile
   if (isStreaming || isMobile) {
     return (
-      <div className="h-full w-full bg-black p-6 overflow-y-auto scrollbar-hide">
+      <div className="h-full w-full bg-background p-6 overflow-y-auto scrollbar-hide">
         <TextEffect 
           key={isStreaming ? "streaming" : "static"}
           per="line" 
           preset="blur" 
-          className="text-[13px] font-mono font-light text-white leading-relaxed"
+          className="text-[13px] font-mono font-light text-foreground leading-relaxed"
           variants={{
             container: {
               visible: {
@@ -64,7 +65,7 @@ export default function CodeEditor({ code }: CodeEditorProps) {
     <MonacoEditor
       height="100%"
       language="python"
-      theme="forge-dark"
+      theme={useTheme().theme === "dark" ? "forge-dark" : "forge-light"}
       value={code}
       options={{
         readOnly: true,
@@ -104,6 +105,22 @@ export default function CodeEditor({ code }: CodeEditorProps) {
             "editorCursor.foreground": "#FFFFFF",
             "editorWidget.background": "#111111",
             "editorWidget.border": "#222222",
+          },
+        });
+        monaco.editor.defineTheme("forge-light", {
+          base: "vs",
+          inherit: true,
+          rules: [],
+          colors: {
+            "editor.background": "#fdfcf7",
+            "editor.foreground": "#1a1a1a",
+            "editorLineNumber.foreground": "#b5b3a8",
+            "editorLineNumber.activeForeground": "#6b6a64",
+            "editor.selectionBackground": "#f4f3ed",
+            "editor.lineHighlightBackground": "#f4f3ed",
+            "editorCursor.foreground": "#1a1a1a",
+            "editorWidget.background": "#fdfcf7",
+            "editorWidget.border": "#e0ded3",
           },
         });
       }}

@@ -7,9 +7,9 @@ export default function SignInPage() {
       {/* Left Area - Branding / Visual */}
       <div className="hidden lg:flex flex-1 relative bg-black items-center justify-center p-4 py-6 border-r border-white/5 z-10">
         <HeroDitheringCard
-          title="FORGE"
+          title="WELCOME"
           description="Sign in to your workbench and continue building."
-          colorFront="#8B5CF6"
+          colorFront="#06b6d4"
           minHeight="h-[96vh]"
           hideButton={true}
           className="w-full h-full max-w-none shadow-2xl"

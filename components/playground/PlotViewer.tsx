@@ -19,7 +19,7 @@ export default function PlotViewer({ name, base64 }: PlotViewerProps) {
         key={base64.slice(-20)}
         src={`data:image/png;base64,${base64}`}
         alt={name}
-        className="w-full bg-[#0a0a0a]"
+        className="w-full bg-elevated border border-border"
         style={{ aspectRatio: "auto" }}
       />
     </div>

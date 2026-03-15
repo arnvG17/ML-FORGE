@@ -17,6 +17,9 @@ export interface ForgeSession {
   forkCount: number;
   rating: number;
   ratingCount: number;
+  likes?: string[];
+  creatorName?: string;
+  creatorImage?: string;
 
   currentCode: {
     full: string;
@@ -66,6 +69,10 @@ export async function ensureIndexes(): Promise<void> {
     col.createIndex({ visibility: 1, rating: -1 }),
     col.createIndex({ name: "text", intent: "text" }),
   ]);
+
+  const commentCol = await getCollection("comments");
+  await commentCol.createIndex({ sessionId: 1 });
+  await commentCol.createIndex({ createdAt: -1 });
 }
 
 export async function createSession(
@@ -91,6 +98,8 @@ export async function createSession(
     controls: data.controls || [],
     currentParams: data.currentParams || {},
     lastMetrics: data.lastMetrics || {},
+    creatorName: data.creatorName,
+    creatorImage: data.creatorImage,
     codeVersions: data.codeVersions || [],
     conversation: data.conversation || [],
     llmContext: data.llmContext || [],
@@ -218,6 +227,7 @@ export async function listUserSessions(
           updatedAt: 1,
           lastOpenedAt: 1,
           intent: 1,
+          likes: 1,
         },
       }
     )
@@ -225,6 +235,65 @@ export async function listUserSessions(
     .limit(100)
     .toArray();
   return docs as unknown as Partial<ForgeSession>[];
+}
+
+export interface SessionComment {
+  _id?: any;
+  sessionId: string;
+  userId: string;
+  userName: string;
+  userImage: string;
+  text: string;
+  createdAt: Date;
+}
+
+export async function toggleLike(
+  sessionId: string,
+  userId: string
+): Promise<{ likes: string[]; liked: boolean }> {
+  const col = await getCollection("sessions");
+  const session = await col.findOne({ sessionId });
+  if (!session) throw new Error("Session not found");
+
+  const likes = (session.likes || []) as string[];
+  const liked = likes.includes(userId);
+
+  if (liked) {
+    await col.updateOne({ sessionId }, { $pull: { likes: userId } as any });
+  } else {
+    await col.updateOne({ sessionId }, { $addToSet: { likes: userId } as any });
+  }
+
+  const updated = await col.findOne({ sessionId });
+  return { likes: updated?.likes || [], liked: !liked };
+}
+
+export async function addComment(
+  sessionId: string,
+  userId: string,
+  userName: string,
+  userImage: string,
+  text: string
+): Promise<SessionComment> {
+  const col = await getCollection("comments");
+  const comment: SessionComment = {
+    sessionId,
+    userId,
+    userName,
+    userImage,
+    text,
+    createdAt: new Date(),
+  };
+  const result = await col.insertOne(comment as any);
+  return { ...comment, _id: result.insertedId };
+}
+
+export async function getComments(sessionId: string): Promise<SessionComment[]> {
+  const col = await getCollection("comments");
+  return (await col
+    .find({ sessionId })
+    .sort({ createdAt: -1 })
+    .toArray()) as unknown as SessionComment[];
 }
 
 export async function setVisibility(
@@ -339,6 +408,9 @@ export async function getPublicGallery(): Promise<Partial<ForgeSession>[]> {
           rating: 1,
           ratingCount: 1,
           updatedAt: 1,
+          likes: 1,
+          creatorName: 1,
+          creatorImage: 1,
         },
       }
     )
@@ -368,6 +440,9 @@ export async function searchPublicSessions(
         rating: 1,
         ratingCount: 1,
         updatedAt: 1,
+        likes: 1,
+        creatorName: 1,
+        creatorImage: 1,
       },
     })
     .sort({ rating: -1, forkCount: -1 })

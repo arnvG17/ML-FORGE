@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUserId } from "@/lib/auth-server";
+import { getCurrentUserId, getCurrentUser } from "@/lib/auth-server";
 import { loadSessionById, updateSession, getCollection } from "@/lib/session-db";
 
 interface RouteParams {
@@ -21,13 +21,29 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { $set, $push, visibility: _v, ...directFields } = body;
+  const { $set, $push, visibility, ...directFields } = body;
 
   try {
-    await updateSession(params.sessionId, userId, {
-      $set: { ...directFields, ...$set },
-      $push,
-    });
+    if (visibility) {
+      const { setVisibility, updateSession } = await import("@/lib/session-db");
+      await setVisibility(params.sessionId, userId, visibility);
+      
+      if (visibility === "public") {
+        const user = await getCurrentUser();
+        if (user) {
+          await updateSession(params.sessionId, userId, {
+            $set: { creatorName: user.name, creatorImage: user.image } as any
+          });
+        }
+      }
+    }
+
+    if (Object.keys(directFields).length > 0 || $set || $push) {
+      await updateSession(params.sessionId, userId, {
+        $set: { ...directFields, ...$set },
+        $push,
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 403 });

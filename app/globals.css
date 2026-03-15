@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,9 +26,31 @@
 }
 
 
+:root {
+  --background: #fdfcf7;
+  --foreground: #1a1a1a;
+  --surface: #fdfcf7;
+  --elevated: #f4f3ed;
+  --border: #e0ded3;
+  --muted: #6b6a64;
+  --placeholder: #b5b3a8;
+  --primary: #8b5cf6;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #111111;
+  --elevated: #1a1a1a;
+  --border: #222222;
+  --muted: #444444;
+  --placeholder: #888888;
+  --primary: #a78bfa;
+}
+
 body {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: var(--font-inter), "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -78,4 +101,22 @@ code,
 pre,
 .font-mono {
   font-family: var(--font-mono), "JetBrains Mono", monospace;
+}
+
+/* Hide Clerk Development Mode Badge and Banner */
+.cl-internal-ph676z, 
+.cl-internal-1dauvuv,
+[data-clerk-development-mode-badge],
+.cl-internal-badge {
+  display: none !important;
+}
+
+/* Make sign-in form feel heavier/more premium */
+.cl-rootBox {
+  font-family: var(--font-inter), system-ui, sans-serif !important;
+}
+
+.cl-headerTitle {
+  font-weight: 800 !important;
+  letter-spacing: -0.04em !important;
 }

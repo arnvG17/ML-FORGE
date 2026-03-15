@@ -118,7 +118,7 @@ const communityFeatures = [
 
 function DitheringBackground({ color }: { color: string }) {
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none opacity-35 mix-blend-screen overflow-hidden rounded-[inherit] scale-x-[1.5]">
+    <div className="absolute inset-0 z-0 pointer-events-none opacity-35 overflow-hidden rounded-[inherit] scale-x-[1.5] mix-blend-screen">
       <Suspense fallback={null}>
         <Dithering
           colorBack="#00000000"
@@ -159,7 +159,7 @@ function ScaledSection({ children, color }: { children: React.ReactNode, color: 
       <motion.section
         ref={containerRef}
         style={!isMobile ? { scale, opacity } : {}}
-        className="w-full max-w-7xl relative overflow-hidden rounded-[24px] md:rounded-[32px] border border-border bg-surface bg-black py-16 md:py-24 px-6 md:px-12 transition-colors duration-500 shadow-sm"
+        className="w-full max-w-7xl relative overflow-hidden rounded-[24px] md:rounded-[32px] border border-white/5 bg-black py-16 md:py-24 px-6 md:px-12 transition-colors duration-500 shadow-sm"
       >
         <DitheringBackground color={color} />
         <motion.div style={!isMobile ? { scale: contentScale } : {}} className="relative z-10 origin-center">
@@ -181,7 +181,7 @@ function FeatureGrid({ data }: { data: typeof features }) {
             key={f.number}
             className="group"
           >
-            <span className="text-xs font-mono text-muted group-hover:text-white transition-colors duration-300">
+            <span className="text-xs font-mono text-muted group-hover:text-foreground transition-colors duration-300">
               {f.number}
             </span>
             <h3 className="mt-3 text-xl font-mono font-bold group-hover:text-primary transition-colors duration-300">
@@ -199,7 +199,7 @@ function FeatureGrid({ data }: { data: typeof features }) {
 
 export default function FeatureRow() {
   return (
-    <div className="bg-black">
+    <div className="bg-background">
       {/* ── 01–04 Columns ───────────────────────────────── */}
       <FeatureGrid data={features} />
 
@@ -207,13 +207,13 @@ export default function FeatureRow() {
       <ScaledSection color="#8B5CF6">
         <div className="max-w-5xl mx-auto text-left">
           <div className="mb-12 md:mb-16">
-            <span className="text-xs font-mono text-muted uppercase tracking-widest">
+            <span className="text-xs font-mono text-white/50 uppercase tracking-widest">
               Why Forge
             </span>
-            <h2 className="mt-4 text-3xl md:text-4xl font-mono font-bold">
+            <h2 className="mt-4 text-3xl md:text-4xl font-mono font-bold text-white">
               The gap is zero.
             </h2>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed font-mono font-light text-placeholder">
+            <p className="mt-4 max-w-xl text-sm leading-relaxed font-mono font-light text-white/50">
               Other tools give you code in a text box. You copy it, set up an
               environment, debug it, run it yourself. Forge gives you a running,
               interactive experiment. The distance between "AI wrote it" and
@@ -225,17 +225,17 @@ export default function FeatureRow() {
               <motion.div
                 whileHover={{
                   borderColor: "rgba(255, 255, 255, 0.3)",
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
+                  backgroundColor: "rgba(255, 255, 255, 0.05)",
                   y: -2,
                 }}
                 transition={{ duration: 0.2 }}
                 key={d.title}
-                className="border border-border p-6 rounded-sm bg-black/40 backdrop-blur-sm transition-all duration-300"
+                className="border border-white/10 p-6 rounded-sm bg-white/[0.03] backdrop-blur-sm transition-all duration-300"
               >
                 <h4 className="font-mono font-bold text-sm text-white/90">
                   {d.title}
                 </h4>
-                <p className="mt-3 text-sm leading-relaxed font-mono font-light text-placeholder">
+                <p className="mt-3 text-sm leading-relaxed font-mono font-light text-white/40">
                   {d.description}
                 </p>
               </motion.div>
@@ -251,13 +251,13 @@ export default function FeatureRow() {
       <ScaledSection color="#10B981">
         <div className="max-w-5xl mx-auto text-left">
           <div className="mb-12 md:mb-16">
-            <span className="text-xs font-mono text-muted uppercase tracking-widest">
+            <span className="text-xs font-mono text-white/50 uppercase tracking-widest">
               Community
             </span>
-            <h2 className="mt-4 text-3xl md:text-4xl font-mono font-bold">
+            <h2 className="mt-4 text-3xl md:text-4xl font-mono font-bold text-white">
               Playgrounds worth sharing.
             </h2>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed font-mono font-light text-placeholder">
+            <p className="mt-4 max-w-xl text-sm leading-relaxed font-mono font-light text-white/50">
               Every Forge session can become a public playground. Fork, rate,
               embed. The best experiments surface to the top.
             </p>
@@ -267,20 +267,20 @@ export default function FeatureRow() {
               <motion.div
                 whileHover={{
                   borderColor: "rgba(16, 185, 129, 0.3)",
-                  backgroundColor: "rgba(0, 0, 0, 0.6)",
+                  backgroundColor: "rgba(255, 255, 255, 0.05)",
                   y: -2,
                 }}
                 transition={{ duration: 0.2 }}
                 key={c.title}
-                className="border border-border p-6 rounded-sm bg-black/40 backdrop-blur-sm transition-all duration-300"
+                className="border border-white/10 p-6 rounded-sm bg-white/[0.03] backdrop-blur-sm transition-all duration-300"
               >
-                <span className="font-mono text-[10px] border border-border px-2 py-0.5 text-muted uppercase tracking-tight">
+                <span className="font-mono text-[10px] border border-white/10 px-2 py-0.5 text-white/40 uppercase tracking-tight">
                   {c.tag}
                 </span>
                 <h4 className="mt-3 font-mono font-bold text-sm text-white/90">
                   {c.title}
                 </h4>
-                <p className="mt-3 text-sm leading-relaxed font-mono font-light text-placeholder">
+                <p className="mt-3 text-sm leading-relaxed font-mono font-light text-white/40">
                   {c.description}
                 </p>
               </motion.div>
@@ -289,9 +289,9 @@ export default function FeatureRow() {
           <div className="mt-12">
             <a
               href="/playground"
-              className="inline-block border border-border px-6 py-3 font-mono
-                         text-sm text-muted hover:border-white hover:text-white
-                         transition-colors duration-150 rounded-sm bg-black/20 backdrop-blur-sm"
+              className="inline-block border border-white/10 px-6 py-3 font-mono
+                         text-sm text-white/50 hover:border-white hover:text-white
+                         transition-colors duration-150 rounded-sm bg-white/[0.05] backdrop-blur-sm"
             >
               Browse Playgrounds →
             </a>

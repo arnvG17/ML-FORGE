@@ -14,6 +14,7 @@ import { MorphingSquare } from "@/components/ui/morphing-square";
 import { TextEffect } from "@/components/ui/text-effect";
 
 import ChatPanel from "./ChatPanel";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -63,18 +64,18 @@ function SharePopover({
   };
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-64 bg-black border border-white/10 z-50 font-mono">
+    <div className="absolute top-full right-0 mt-2 w-64 bg-background border border-border z-50 font-mono shadow-xl">
       <div className="p-3 space-y-1">
         {(["private", "link", "public"] as const).map((v) => (
           <button
             key={v}
             onClick={() => handleSelect(v)}
             className={`w-full text-left px-3 py-2 transition-colors ${
-              selected === v ? "text-white bg-white/5" : "text-zinc-500 hover:text-zinc-300"
+              selected === v ? "text-foreground bg-foreground/5" : "text-muted hover:text-foreground"
             }`}
           >
             <div className="text-xs font-semibold capitalize">{v === "link" ? "Share link" : v}</div>
-            <div className="text-[10px] text-zinc-600 mt-0.5">
+            <div className="text-[10px] text-muted opacity-80 mt-0.5">
               {v === "private" && "Only you can see this"}
               {v === "link" && "Anyone with the link"}
               {v === "public" && "Discoverable by everyone"}
@@ -87,7 +88,7 @@ function SharePopover({
           <input
             readOnly
             value={shareUrl}
-            className="flex-1 bg-transparent border border-white/10 px-2 py-1 text-[10px] text-zinc-400 focus:outline-none"
+            className="flex-1 bg-transparent border border-border px-2 py-1 text-[10px] text-muted focus:outline-none"
           />
           <button
             onClick={() => {
@@ -95,7 +96,7 @@ function SharePopover({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="text-[10px] px-2 py-1 border border-white/10 text-zinc-400 hover:text-white transition-colors"
+            className="text-[10px] px-2 py-1 border border-border text-muted hover:text-foreground transition-colors"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -209,23 +210,23 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     <div className="relative">
       <button
         onClick={() => setShowShare(!showShare)}
-        className="text-[11px] font-mono text-zinc-500 hover:text-white px-3 py-1 border border-white/10 hover:border-white/30 transition-colors"
+        className="text-[11px] font-mono text-zinc-500 hover:text-foreground px-3 py-1 border border-border hover:border-zinc-400 transition-colors"
       >
         Share
       </button>
       {showShare && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-black border border-white/10 z-50 font-mono">
+        <div className="absolute top-full right-0 mt-2 w-64 bg-surface border border-border z-50 font-mono shadow-2xl">
           <div className="p-3 space-y-1">
             {(["private", "link", "public"] as const).map((v) => (
               <button
                 key={v}
                 onClick={() => handleShare(v)}
                 className={`w-full text-left px-3 py-2 transition-colors ${
-                  currentVisibility === v ? "text-white bg-white/5" : "text-zinc-500 hover:text-zinc-300"
+                  currentVisibility === v ? "text-foreground bg-foreground/5" : "text-muted hover:text-foreground"
                 }`}
               >
                 <div className="text-xs font-semibold capitalize">{v === "link" ? "Share link" : v}</div>
-                <div className="text-[10px] text-zinc-600 mt-0.5">
+                <div className="text-[10px] text-muted opacity-80 mt-0.5">
                   {v === "private" && "Only you can see this"}
                   {v === "link" && "Anyone with the link"}
                   {v === "public" && "Discoverable by everyone"}
@@ -234,18 +235,18 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
             ))}
           </div>
           {shareUrl && currentVisibility !== "private" && (
-            <div className="px-3 pb-3 border-t border-white/10 pt-3">
+            <div className="px-3 pb-3 border-t border-border pt-3">
               <div className="flex gap-2">
                 <input
                   readOnly
                   value={shareUrl}
-                  className="flex-1 bg-transparent border border-white/10 px-2 py-1 text-[10px] text-zinc-400 focus:outline-none min-w-0"
+                  className="flex-1 bg-transparent border border-border px-2 py-1 text-[10px] text-muted focus:outline-none min-w-0"
                 />
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(shareUrl);
                   }}
-                  className="text-[10px] px-2 py-1 border border-white/10 text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
+                  className="text-[10px] px-2 py-1 border border-border text-muted hover:text-foreground transition-colors whitespace-nowrap"
                 >
                   Copy
                 </button>
@@ -258,7 +259,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   );
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black flex flex-col md:flex-row">
+    <div className="relative w-screen h-screen overflow-hidden bg-background text-foreground flex flex-col md:flex-row">
       <AnimatePresence mode="wait">
         {!started ? (
           <motion.div 
@@ -267,7 +268,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)" }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 z-50 h-full w-full flex flex-col items-center justify-center p-4 md:p-8 bg-black overflow-y-auto">
+            className="absolute inset-0 z-50 h-full w-full flex flex-col items-center justify-center p-4 md:p-8 bg-background overflow-y-auto">
             <HeroDitheringCard
               title="FORGE"
               description="What do you want to build?"
@@ -277,7 +278,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
               minHeight="min-h-[300px] md:min-h-[360px]"
             >
               <div className="w-full max-w-[900px] px-4">
-                <div className="relative border border-white/10 rounded-2xl bg-[#111111]/60 backdrop-blur-xl focus-within:border-white/20 transition-all duration-300 shadow-2xl group/input min-h-[160px] flex flex-col">
+                <div className="relative border border-foreground/10 rounded-2xl bg-foreground/5 backdrop-blur-3xl focus-within:border-foreground/20 transition-all duration-300 shadow-2xl group/input min-h-[160px] flex flex-col">
                   <textarea
                     ref={textareaRef}
                     value={inputValue}
@@ -285,11 +286,11 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
                     onKeyDown={handleKeyDown}
                     placeholder="Type your request..."
                     rows={1}
-                    className="w-full bg-transparent text-white px-6 py-6 text-[15px] md:text-[16px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-zinc-500 focus:outline-none resize-none leading-relaxed flex-1"
+                    className="w-full bg-transparent text-foreground px-6 py-6 text-[15px] md:text-[16px] font-mono font-light placeholder:font-mono placeholder:font-light placeholder:text-foreground/30 focus:outline-none resize-none leading-relaxed flex-1"
                   />
                   
                   <div className="flex items-center justify-between px-4 pb-4">
-                    <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-400 transition-colors duration-200">
+                    <button className="p-2.5 rounded-xl hover:bg-foreground/5 text-foreground/40 hover:text-foreground transition-colors duration-200">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                       </svg>
@@ -323,7 +324,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
                         setInputValue(suggestion);
                         textareaRef.current?.focus();
                       }}
-                      className="text-xs font-mono font-light text-muted border border-border rounded-full px-4 py-2 hover:border-white hover:text-white transition-colors duration-150 backdrop-blur-sm bg-black/30"
+                      className="text-xs font-mono font-light text-foreground/50 border border-foreground/10 rounded-full px-4 py-2 hover:border-foreground hover:text-foreground transition-colors duration-150 backdrop-blur-sm bg-foreground/5"
                     >
                       {suggestion}
                     </motion.button>
@@ -408,6 +409,7 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
                       <ShareButton />
                     </div>
                   )}
+                  <ThemeToggle className="scale-75 origin-center" />
                 </div>
               </div>
             ) : (

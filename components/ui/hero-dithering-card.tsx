@@ -44,9 +44,9 @@ export function HeroDitheringCard({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className={cn("relative overflow-hidden rounded-[24px] border border-border bg-surface shadow-sm w-full flex flex-col items-center justify-center duration-500", minHeight)}>
-          <Suspense fallback={<div className="absolute inset-0 bg-black/20" />}>
-            <div className="absolute inset-0 z-0 pointer-events-none opacity-40 mix-blend-screen scale-x-[1.5]">
+        <div className={cn("relative overflow-hidden rounded-[24px] border border-white/5 bg-black w-full flex flex-col items-center justify-center duration-500", minHeight)}>
+          <Suspense fallback={<div className="absolute inset-0 bg-white/5" />}>
+            <div className="absolute inset-0 z-0 pointer-events-none opacity-40 scale-x-[1.5] mix-blend-screen">
               <Dithering
                 colorBack="#00000000"
                 colorFront={colorFront}
@@ -76,7 +76,7 @@ export function HeroDitheringCard({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
-                className="text-placeholder text-lg md:text-xl max-w-2xl mb-12 leading-relaxed font-mono font-light">
+                className="text-white/60 text-lg md:text-xl max-w-2xl mb-12 leading-relaxed font-mono font-light">
                 {description}
               </motion.p>
             )}

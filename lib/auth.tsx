@@ -19,17 +19,17 @@ export const forgeAppearance = {
   variables: {
     colorBackground: "#000000",
     colorText: "#ffffff",
-    colorPrimary: "#8B5CF6", // Purple primary to match Forge
-    colorInputBackground: "rgba(255, 255, 255, 0.03)",
+    colorPrimary: "#06b6d4", // Cyan primary to match the new theme
+    colorInputBackground: "rgba(255, 255, 255, 0.05)",
     colorInputText: "#ffffff",
     borderRadius: "12px", // Slightly rounded for premium feel
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--font-inter)", // Use Inter for standard text to feel more "solid"
   },
   elements: {
     card: {
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5)",
-      background: "rgba(0, 0, 0, 0.8)",
+      border: "1px solid rgba(255, 255, 255, 0.12)",
+      boxShadow: "0 25px 60px rgba(0, 0, 0, 0.8)",
+      background: "#050505", // More solid background
       backdropFilter: "blur(20px)",
     },
     formButtonPrimary: {
@@ -56,17 +56,28 @@ export const forgeAppearance = {
         border: "1px solid rgba(255, 255, 255, 0.2)",
       },
     },
-    footerActionLink: { color: "#8B5CF6", fontWeight: "600" },
-    identityPreviewText: { color: "#888888" },
-    formFieldLabel: { color: "rgba(255, 255, 255, 0.6)", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.1em" },
-    formFieldInput: { border: "1px solid rgba(255, 255, 255, 0.1)", background: "rgba(255, 255, 255, 0.03)" },
+    footerActionLink: { color: "#06b6d4", fontWeight: "700" },
+    identityPreviewText: { color: "#cccccc" }, // Brighter for better readability
+    formFieldLabel: { color: "#ffffff", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.1em" }, // Bold white for stronger feel
+    formFieldInput: { border: "1px solid rgba(255, 255, 255, 0.15)", background: "rgba(255, 255, 255, 0.05)" },
+    headerTitle: { fontFamily: "var(--font-inter)", fontWeight: "800", letterSpacing: "-0.02em" },
+    headerSubtitle: { color: "#999999" },
+    socialButtonsBlockButtonText: { fontWeight: "600" },
+    // Specific hack for Clerk dev badge if it injects classes
+    internal_developmentModeBadge: { display: "none !important" },
   },
 };
 
 // ─── Provider ─────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
   return (
-    <ClerkProvider appearance={forgeAppearance}>{children}</ClerkProvider>
+    <ClerkProvider 
+      appearance={forgeAppearance}
+      // @ts-ignore
+      unsafe_disableDevelopmentModeWarnings={true}
+    >
+      {children}
+    </ClerkProvider>
   );
 }
 
@@ -105,7 +116,7 @@ export function ForgeUserButton() {
             border: "1px solid rgba(255, 255, 255, 0.1)",
             borderRadius: "50%",
             overflow: "hidden",
-            filter: "drop-shadow(0 0 8px rgba(139, 92, 246, 0.3))",
+            filter: "drop-shadow(0 0 8px rgba(6, 182, 212, 0.3))",
           },
           avatarImage: {
             display: "none", // Hide the default Clerk image
@@ -121,7 +132,7 @@ export function SignOutButton() {
   return (
     <button
       onClick={() => signOut()}
-      className="text-[10px] font-mono font-medium text-zinc-500 hover:text-white transition-colors uppercase tracking-widest px-2 py-1 border border-white/5 hover:border-white/20 rounded"
+      className="text-[10px] font-mono font-medium text-muted hover:text-foreground transition-colors uppercase tracking-widest px-2 py-1 border border-border hover:border-primary/50 rounded bg-surface"
     >
       Log out
     </button>
