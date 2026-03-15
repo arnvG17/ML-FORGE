@@ -13,9 +13,11 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
-  }
+  console.log(`[Test] Middleware running for: ${request.nextUrl.pathname}`);
+  // Temporarily disabling auth check to isolate the TypeError
+  // if (!isPublicRoute(request)) {
+  //   await auth.protect();
+  // }
 });
 
 export const config = {
