@@ -20,6 +20,7 @@ export interface ForgeSession {
   likes?: string[];
   creatorName?: string;
   creatorImage?: string;
+  sessionMode: "playground" | "compiler";
 
   currentCode: {
     full: string;
@@ -98,6 +99,7 @@ export async function createSession(
     controls: data.controls || [],
     currentParams: data.currentParams || {},
     lastMetrics: data.lastMetrics || {},
+    sessionMode: data.sessionMode || "playground",
     creatorName: data.creatorName,
     creatorImage: data.creatorImage,
     codeVersions: data.codeVersions || [],
@@ -228,6 +230,7 @@ export async function listUserSessions(
           lastOpenedAt: 1,
           intent: 1,
           likes: 1,
+          sessionMode: 1,
         },
       }
     )
@@ -411,6 +414,7 @@ export async function getPublicGallery(): Promise<Partial<ForgeSession>[]> {
           likes: 1,
           creatorName: 1,
           creatorImage: 1,
+          sessionMode: 1,
         },
       }
     )
@@ -443,6 +447,7 @@ export async function searchPublicSessions(
         likes: 1,
         creatorName: 1,
         creatorImage: 1,
+        sessionMode: 1,
       },
     })
     .sort({ rating: -1, forkCount: -1 })

@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         likes: 1,
         creatorName: 1,
         creatorImage: 1,
+        sessionMode: 1,
       },
     })
     .sort(sortOption)

@@ -5,6 +5,8 @@ import CenterPanel from "./CenterPanel";
 import RightPanel from "./RightPanel";
 import { useAgentStore } from "@/store/agent";
 import { useSessionStore } from "@/store/session";
+import { useCompilerStore } from "@/store/compiler";
+import { useRouter } from "next/navigation";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -258,6 +260,28 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     </div>
   );
 
+  const ImportToCompilerButton = () => {
+    const router = useRouter();
+    const currentCode = useAgentStore((s) => s.code);
+    const { setUserCode, setSessionId, resetChat } = useCompilerStore();
+
+    const handleImport = () => {
+      resetChat();
+      setUserCode(currentCode);
+      setSessionId(null);
+      router.push("/compiler");
+    };
+
+    return (
+      <button
+        onClick={handleImport}
+        className="text-[11px] font-mono text-[#f97316] hover:text-[#fb923c] px-3 py-1 border border-[#f9731633] hover:border-[#f9731666] transition-colors"
+      >
+        Import to Compiler →
+      </button>
+    );
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-background text-foreground flex flex-col md:flex-row">
       <AnimatePresence mode="wait">
@@ -428,9 +452,10 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
                   
                   <ResizablePanel defaultSize={55} minSize={30}>
                     <div className="h-full w-full bg-white relative overflow-hidden">
-                      {/* Share button overlay */}
+                      {/* Share and Import buttons overlay */}
                       {!isReadOnly && (
-                        <div className="absolute top-2 right-2 z-30">
+                        <div className="absolute top-2 right-2 z-30 flex items-center gap-2">
+                          <ImportToCompilerButton />
                           <ShareButton />
                         </div>
                       )}

@@ -8,7 +8,7 @@ async function* streamWithFallback(prompt: string, preferGemini = false) {
   const start = Date.now();
   console.log("[LLM] Starting streamWithFallback");
   console.log("[LLM] FULL PROMPT:\n", prompt);
-  
+
   if (preferGemini) {
     try {
       yield* streamGemini(prompt, start);
@@ -47,7 +47,8 @@ export function trimContext(
 async function* streamGroq(
   prompt: string,
   start: number,
-  context: Array<{ role: string; content: string }> = []
+  context: Array<{ role: string; content: string }> = [],
+  systemPrompt: string = PYODIDE_SYSTEM_PROMPT
 ) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is missing");
@@ -55,7 +56,7 @@ async function* streamGroq(
   console.log("[LLM] Attempting Groq (llama-3.3-70b-versatile)...");
   const groq = new Groq({ apiKey });
 
-  const messages: any[] = [{ role: "system", content: PYODIDE_SYSTEM_PROMPT }];
+  const messages: any[] = [{ role: "system", content: systemPrompt }];
   if (context.length > 0) {
     messages.push(...context);
   }
@@ -83,7 +84,8 @@ async function* streamGroq(
 async function* streamGemini(
   prompt: string,
   start: number,
-  context: Array<{ role: string; content: string }> = []
+  context: Array<{ role: string; content: string }> = [],
+  systemPrompt: string = PYODIDE_SYSTEM_PROMPT
 ) {
   const geminiKey =
     process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -93,7 +95,7 @@ async function* streamGemini(
   const genAI = new GoogleGenerativeAI(geminiKey);
   const model = genAI.getGenerativeModel({
     model: "gemini-2.0-flash",
-    systemInstruction: PYODIDE_SYSTEM_PROMPT,
+    systemInstruction: systemPrompt,
     generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
   });
 
@@ -124,7 +126,7 @@ async function* streamGemini(
 async function thinkWithFallback(prompt: string, preferGemini = false): Promise<string> {
   const start = Date.now();
   console.log("[LLM] Starting thinkWithFallback (preferGemini: " + preferGemini + ")");
-  
+
   if (preferGemini) {
     try {
       return await thinkGemini(prompt, start);
@@ -168,7 +170,7 @@ async function thinkGemini(prompt: string, start: number): Promise<string> {
   const genAI = new GoogleGenerativeAI(geminiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   const result = await model.generateContent(prompt);
-  
+
   console.log(`[LLM] Thinker: Gemini completed in ${Date.now() - start}ms`);
   return result.response.text();
 }
@@ -185,7 +187,7 @@ Your job is to take a raw user intent and transform it into a sophisticated, tec
 
 ═ OUTPUT FORMAT ═
 Output a concise TECHNICAL PLAN. Focus on:
-- ML Approach: (e.g. "RandomForestClassifier for digit recognition")
+- ML Approach:     (e.g. "RandomForestClassifier for digit recognition")
 - Data Prep: (e.g. "Generate 500 samples of noisy sine waves")
 - Controls: (e.g. "Add a slider for 'Noise Level' and 'Sample Count'")
 - Visuals: (e.g. "Plot decision boundaries using seaborn and a confusion matrix")
@@ -209,8 +211,9 @@ model, generates plots, and sets a variable called forge_result.
 3. sns.set_theme(style="dark", palette="muted") — for premium aesthetics
 4. Data Persistence Logic:
    # Use globals to cache data and avoid regeneration on slider updates
-   if 'X' not in globals():
+   if 'my_dataset' not in globals():
        # Generate data here
+       # Tip: Use unique names (e.g., 'kmeans_data') so multiple features can co-exist
        pass
 5. CONTROLS list
 6. Inside a try block:
@@ -228,9 +231,8 @@ Declare CONTROLS as a Python list. Every tunable parameter needs a control entry
 Slider shape: {"id": "max_depth", "type": "slider", "label": "Tree Depth", "min": 1, "max": 20, "step": 1, "default": 3, "targets_var": "MAX_DEPTH"}
 
 ═ MODEL TRAINING & DATA RULES ═
-- IMPORTANT: Reuse data if it exists in globals() to ensure consistency when sliders are moved.
-- Always pass hyperparameters in the constructor.
-- Always set random_state=42.
+- IMPORTANT: Reuse data if it exists in globals() to ensure consistency when sliders move, UNLESS the user explicitly asks for new data or a "Random Seed" slider is changed.
+- If the user wants variety, suggest adding a "Random Seed" (targets_var: "SEED") slider and use it in random_state.
 - Prefer numpy and pandas for data manipulation.
 
 ═ PLOT RULES ═
@@ -255,6 +257,61 @@ forge_result = {
     "errors": []
 }
 Values in metrics must be float/str, not numpy types. Ensure float() coercion for all numbers.
+
+═ OUTPUT RULES ═
+Output raw Python only. No backticks. No markdown. No explanation.
+First character must be 'i' (from import).
+Do not import flask, fastapi, uvicorn, django.
+`;
+
+const MODIFICATION_SYSTEM_PROMPT = `
+You are a Python code MODIFICATION agent for Forge.
+This code runs inside the user's browser using Pyodide.
+There is no server. There is no Flask. There are no HTTP routes.
+
+═ YOUR ONLY JOB ═
+You will receive EXISTING working Python code in the conversation history.
+The user is asking you to MODIFY that existing code — to add a feature, change behavior, or fix something.
+
+CRITICAL RULES:
+1. FOLLOW USER INTENT: If the user asks for a modification or addition, preserve existing features. If the user's new request supersedes an old feature or asks for a total replacement/switch, follow their intent.
+2. CACHE INVALIDATION: If you change the data generation logic OR the user asks to "refresh" or "start over," you MUST invalidate the old cache. Either:
+   - del globals()['old_data_key'] at the top of the logic.
+   - Or use a totally new unique key in globals() for the new data.
+3. You MUST return the COMPLETE modified Python script (not just the changed parts).
+4. Integrate the new feature naturally into the existing code structure.
+5. Keep variable names and function names consistent unless changing them is part of the user's request.
+6. Add new controls (sliders, selects) for any new tunable parameters.
+7. Make sure forge_result at the end contains the active plots, metrics, and controls relevant to the CURRENT request.
+
+═ FILE STRUCTURE — same as before ═
+1. Imports (sklearn, numpy, pandas, matplotlib, seaborn, json, base64, io, textwrap)
+2. matplotlib.use('Agg') — must be before any other matplotlib import
+3. sns.set_theme(style="dark", palette="muted")
+4. Data Persistence Logic (use globals to cache)
+5. CONTROLS list (merge old + new controls)
+6. try block: Read params, train model, generate plots, set forge_result
+7. Except block sets forge_result with error
+
+═ THE params DICT ═
+Before your code runs, a dict called params will already exist. Read from it like:
+MAX_DEPTH = int(params.get("MAX_DEPTH", 3))
+Always provide a sensible default in the .get() call.
+
+═ CONTROLS LIST ═
+Declare CONTROLS as a Python list. Keep all existing controls and add new ones.
+Slider shape: {"id": "max_depth", "type": "slider", "label": "Tree Depth", "min": 1, "max": 20, "step": 1, "default": 3, "targets_var": "MAX_DEPTH"}
+- Suggest adding a "Random Seed" slider (targets_var="SEED") if the user mentions the plots are always the same.
+
+═ PLOT RULES ═
+- Keep ALL existing plot functions. Add new ones as needed.
+- fig, ax = plt.subplots(figsize=(8, 6), facecolor='#0a0a0a')
+- Apply dark styling to axis and spines.
+- Never call plt.show(). Always plt.close(fig).
+
+═ forge_result — THE ONLY OUTPUT ═
+Must include ALL metrics, ALL plots, ALL controls from the original + your additions.
+Values in metrics must be float/str, not numpy types.
 
 ═ OUTPUT RULES ═
 Output raw Python only. No backticks. No markdown. No explanation.
@@ -291,16 +348,40 @@ export async function* streamPyodideScript(
   intent: string,
   context: Array<{ role: string; content: string }> = []
 ) {
-  const prompt = intent;
-  // Stage 2: Prefer Groq
   const start = Date.now();
   const trimmed = trimContext(context);
+  const isModification = trimmed.length > 0;
 
-  try {
-    yield* streamGroq(prompt, start, trimmed);
-  } catch (e) {
-    console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
-    yield* streamGemini(prompt, start, trimmed);
+  if (isModification) {
+    // Extract the last assistant code from context to include explicitly
+    const lastAssistantMsg = [...trimmed].reverse().find(m => m.role === "assistant");
+    const existingCode = lastAssistantMsg?.content || "";
+
+    const modificationPrompt = `Here is the EXISTING working code that the user built:\n\n${existingCode}\n\n` +
+      `The user now wants to MODIFY this code. Their request:\n"${intent}"\n\n` +
+      `IMPORTANT: Return the COMPLETE modified Python script that includes ALL existing features ` +
+      `PLUS the requested changes. Do NOT remove any working functionality. ` +
+      `Integrate the new feature into the existing code structure. Raw Python only.`;
+
+    console.log(`[LLM] Modification mode — existing code length: ${existingCode.length}, new intent: "${intent.slice(0, 50)}..."`);
+
+    try {
+      yield* streamGroq(modificationPrompt, start, [], MODIFICATION_SYSTEM_PROMPT);
+    } catch (e) {
+      console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+      yield* streamGemini(modificationPrompt, start, [], MODIFICATION_SYSTEM_PROMPT);
+    }
+  } else {
+    // First prompt — use standard flow
+    const prompt = intent;
+    console.log(`[LLM] New session mode — intent: "${intent.slice(0, 50)}..."`);
+
+    try {
+      yield* streamGroq(prompt, start, trimmed);
+    } catch (e) {
+      console.warn(`[LLM] Groq failed. Falling back to Gemini...`);
+      yield* streamGemini(prompt, start, trimmed);
+    }
   }
 }
 
@@ -342,5 +423,78 @@ export async function* streamFlaskApp(intent: string) {
   const prompt = FLASK_SYSTEM_PROMPT + "\n\nUser intent: " + intent;
   for await (const token of streamWithFallback(prompt)) {
     yield token;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMPILER MODE — AI Tutor
+// ═══════════════════════════════════════════════════════════════════
+
+const COMPILER_SYSTEM_PROMPT = `
+You are an AI coding tutor inside Forge, a Python compiler for
+beginners. You explain code by writing NEW Python programs that
+run live and produce visible output. Never explain in plain text.
+
+═ ABSOLUTE RULES ═
+1. Your entire response must be valid, runnable Python code.
+2. All explanations go inside # comments. No prose outside them.
+3. First line must start with # describing what you will show.
+4. BE PROACTIVE WITH VISUALS: If the user has data or is asking about ML, ALWAYS generate a seaborn/matplotlib plot. "Smarter" tutors show, they don't just tell.
+5. Maximum 35 lines. Focused beats comprehensive.
+6. The code shares the user's namespace. Use their variable names.
+   Check VARIABLES IN SCOPE before writing anything.
+7. PLOT AESTHETICS:
+   - fig, ax = plt.subplots(figsize=(8, 5), facecolor='#050505')
+   - ax.set_facecolor('#050505')
+   - ax.tick_params(colors='#444444', labelsize=8)
+   - for s in ax.spines.values(): s.set_color('#222222')
+   - Use sns.despine() for a cleaner look.
+
+═ WHEN ASKED TO EXPLAIN ═
+  Use their actual variables. Show with print() what is inside them.
+  If explaining a model, plot the predictions vs actuals.
+
+═ WHEN ASKED WHAT TO ADD NEXT ═
+  Write the next logical extension. Show it working with a plot.
+  Model trained → show correlation heatmap or residual plot.
+
+═ WHEN CODE HAS AN ERROR ═
+  Fix the specific error. Comment every change and why.
+  Show the fixed version printing success or plotting a fix validation.
+
+═ AUTO-EXPLAIN (First Run) ═
+  Generate a quick visualization of their main data variable.
+  If it's a dataframe, show .head() AND a distribution plot.
+`;
+
+export async function* streamCompilerResponse(
+  userCode: string,
+  variables: Array<{ name: string; typeName: string; shape: string }>,
+  chatHistory: Array<{ role: string; text: string }>,
+  userMessage: string
+): AsyncGenerator<string> {
+  const variablesStr = variables
+    .map((v) => `${v.name}: ${v.typeName} ${v.shape}`)
+    .join("\n");
+
+  const recentChat = chatHistory
+    .slice(-4)
+    .map((m) => `${m.role}: ${m.text}`)
+    .join("\n");
+
+  const prompt =
+    `USER'S CODE:\n${userCode}\n\n` +
+    `VARIABLES IN SCOPE:\n${variablesStr}\n\n` +
+    `RECENT CHAT:\n${recentChat}\n\n` +
+    `QUESTION:\n${userMessage}`;
+
+  const start = Date.now();
+  console.log(`[LLM] Compiler mode — streaming response...`);
+
+  try {
+    yield* streamGroq(prompt, start, [], COMPILER_SYSTEM_PROMPT);
+  } catch (e) {
+    console.warn(`[LLM] Compiler: Groq failed. Falling back to Gemini...`);
+    yield* streamGemini(prompt, start, [], COMPILER_SYSTEM_PROMPT);
   }
 }

@@ -13,8 +13,11 @@ import { Navbar } from "@/components/layout/Navbar";
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 function timeAgo(dateStr: string): string {
+  if (!dateStr) return "recently";
   const now = Date.now();
-  const then = new Date(dateStr).getTime();
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "recently";
+  const then = date.getTime();
   const diff = now - then;
   const minutes = Math.floor(diff / 60000);
   if (minutes < 1) return "just now";
@@ -95,11 +98,17 @@ function SessionCard({ session }: { session: any }) {
     }
   };
 
+  const isCompiler = session.sessionMode === "compiler";
+  const accentColor = isCompiler ? "#f97316" : "#3b82f6";
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-background border border-border/80 p-8 group hover:bg-elevated/50 transition-all duration-500 rounded-sm hover:shadow-2xl hover:shadow-black/[0.01] dark:hover:shadow-white/[0.01] relative"
+      className="bg-background p-8 group hover:bg-elevated/50 transition-all duration-500 rounded-sm hover:shadow-2xl hover:shadow-black/[0.01] dark:hover:shadow-white/[0.01] relative"
+      style={{
+        border: `1px solid ${isCompiler ? "rgba(249, 115, 22, 0.2)" : "rgba(59, 130, 246, 0.2)"}`,
+      }}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0 mr-2">
@@ -111,7 +120,8 @@ function SessionCard({ session }: { session: any }) {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleRename()}
-                className="bg-background border border-border px-2 py-1 text-sm font-mono text-foreground w-full focus:outline-none focus:border-primary"
+                className="bg-background border px-2 py-1 text-sm font-mono text-foreground w-full focus:outline-none"
+                style={{ borderColor: accentColor }}
               />
               <button onClick={handleRename} className="text-muted hover:text-foreground">
                 <Check size={14} />
@@ -122,13 +132,17 @@ function SessionCard({ session }: { session: any }) {
             </div>
           ) : (
             <div className="font-mono text-xl font-medium text-foreground truncate">
+              <span style={{ color: accentColor, marginRight: 8 }}>{isCompiler ? "●" : "○"}</span>
               {session.name || "Untitled"}
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-muted px-1.5 py-0.5 border border-border">
-            {session.visibility || "private"}
+          <span
+            className="text-[10px] font-mono px-1.5 py-0.5 border"
+            style={{ borderColor: `${accentColor}33`, color: accentColor }}
+          >
+            {isCompiler ? "COMPILER" : (session.visibility || "private")}
           </span>
           <div className="relative" ref={menuRef}>
             <button
@@ -195,10 +209,11 @@ function SessionCard({ session }: { session: any }) {
         )}
       </div>
       <Link
-        href={`/playground/${session.sessionId}`}
-        className="text-[10px] font-mono uppercase tracking-widest text-foreground hover:text-primary transition-colors inline-flex items-center gap-2 group/link"
+        href={isCompiler ? `/compiler?id=${session.sessionId}` : `/playground/${session.sessionId}`}
+        className="text-[10px] font-mono uppercase tracking-widest hover:underline transition-colors inline-flex items-center gap-2 group/link"
+        style={{ color: accentColor }}
       >
-        Reignite <span className="group-hover/link:translate-x-1 transition-transform duration-300">→</span>
+        {isCompiler ? "Open in Compiler" : "Reignite"} <span className="group-hover/link:translate-x-1 transition-transform duration-300">→</span>
       </Link>
     </motion.div>
   );
@@ -530,14 +545,22 @@ export default function DashboardPage() {
                 Community
               </button>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => router.push("/playground/new")}
-              className="border border-border text-foreground px-6 py-3 font-mono text-sm transition-colors duration-150 ease-in-out hover:bg-foreground hover:text-background"
-            >
-              New Session
-            </motion.button>
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.push("/playground/new")}
+                className="border border-border text-foreground px-6 py-3 font-mono text-sm transition-colors duration-150 ease-in-out hover:bg-foreground hover:text-background"
+              >
+                New Session
+              </motion.button>
+              <Link
+                href="/compiler"
+                className="border border-border text-foreground px-6 py-3 font-mono text-sm transition-colors duration-150 ease-in-out hover:bg-foreground hover:text-background"
+              >
+                Open Compiler →
+              </Link>
+            </div>
           </div>
 
           {activeTab === "sessions" && (
@@ -558,7 +581,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {sessions.map((session: any) => (
+                  {Array.isArray(sessions) && sessions.map((session: any) => (
                     <SessionCard key={session.sessionId} session={session} />
                   ))}
                 </div>
@@ -609,7 +632,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {gallery.map((session: any) => (
+                  {Array.isArray(gallery) && gallery.map((session: any) => (
                     <GalleryCard key={session.shareToken} session={session} onOpenSocial={setSelectedSocialSession} />
                   ))}
                 </div>

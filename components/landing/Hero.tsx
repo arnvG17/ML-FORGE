@@ -36,14 +36,32 @@ export default function Hero() {
         <HeroDitheringCard
           title="FORGE"
           description="AI-driven scikit-learn playground. Describe your model, stream the code, interact with results instantly. No local environment required."
-          buttonText="Start Building →"
           colorFront={heroColor}
-          onClick={() => router.push("/sign-in")}
+          hideButton={true}
           className="pt-12 pb-12"
           titleClassName="font-comico text-5xl md:text-8xl lg:text-[120px] tracking-tighter text-white mb-6 md:mb-8 leading-none"
           minHeight="min-h-[60vh] md:min-h-[70vh]"
           contentScale={!isMobile ? contentScale : 1}
-        />
+        >
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 w-full">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push("/sign-in")}
+              className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full bg-white px-10 text-base font-mono font-medium text-black transition-all duration-300 hover:bg-white/90 hover:ring-4 hover:ring-white/20 w-full md:w-auto"
+            >
+              <span className="relative z-10">Start Building →</span>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => router.push("/compiler")}
+              className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/20 bg-white/5 backdrop-blur-md px-10 text-base font-mono font-medium text-white transition-all duration-300 hover:bg-white/10 hover:border-white/40 w-full md:w-auto"
+            >
+              <span className="relative z-10">Try the Compiler →</span>
+            </motion.button>
+          </div>
+        </HeroDitheringCard>
       </motion.div>
     </div>
   );
