@@ -3,12 +3,14 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 
 const HERO_COLORS = ["#10B981", "#EAB308", "#3B82F6", "#EF4444", "#8B5CF6", "#F97316", "#06B6D4", "#6366F1", "#EC4E02"];
 
 export default function Hero() {
   const router = useRouter();
+  const { isSignedIn } = useUser();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [heroColor, setHeroColor] = useState("#EC4E02");
@@ -47,10 +49,12 @@ export default function Hero() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push("/sign-in")}
+              onClick={() => router.push(isSignedIn ? "/compiler" : "/sign-in")}
               className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full bg-white px-10 text-base font-mono font-medium text-black transition-all duration-300 hover:bg-white/90 hover:ring-4 hover:ring-white/20 w-full md:w-auto"
             >
-              <span className="relative z-10">Start Building →</span>
+              <span className="relative z-10">
+                {isSignedIn ? "Back to Compiler →" : "Start Building →"}
+              </span>
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}

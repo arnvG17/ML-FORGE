@@ -20,6 +20,9 @@ export function Navbar() {
       <div className="flex items-center gap-4 md:gap-6">
         {!isSharedPage && (
           <div className="hidden md:flex items-center gap-6 mr-2">
+            <Link href="/compiler" className="text-xs font-mono text-primary hover:text-primary/80 transition-colors uppercase tracking-widest font-bold">
+              Compiler
+            </Link>
             <Link href="/dashboard" className="text-xs font-mono text-muted hover:text-foreground transition-colors uppercase tracking-widest">
               Workspace
             </Link>

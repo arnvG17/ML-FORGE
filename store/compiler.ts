@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { RunResult, VariableInfo } from "@/lib/pyodideRuntime";
+import type { PendingDiff } from "@/lib/editorDiff";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -20,9 +21,15 @@ interface CompilerState {
   chatHistory: CompilerMessage[];
   isGenerating: boolean;
   isExecutingAI: boolean;
+  proposedCode: string | null;
+  pendingDiff: PendingDiff | null;
+  diffStats: { added: number; removed: number } | null;
 
   setPyodideStatus: (s: CompilerState["pyodideStatus"]) => void;
   setUserCode: (code: string) => void;
+  setProposedCode: (code: string | null) => void;
+  setPendingDiff: (diff: PendingDiff | null) => void;
+  setDiffStats: (stats: { added: number; removed: number } | null) => void;
   setSessionId: (id: string | null) => void;
   setWindow1Output: (result: RunResult | null) => void;
   setVariables: (vars: VariableInfo[]) => void;
@@ -52,10 +59,19 @@ export const useCompilerStore = create<CompilerState>((set) => ({
   chatHistory: [],
   isGenerating: false,
   isExecutingAI: false,
+  proposedCode: null,
+  pendingDiff: null,
+  diffStats: null,
 
   setPyodideStatus: (s) => set({ pyodideStatus: s }),
 
   setUserCode: (code) => set({ userCode: code }),
+
+  setProposedCode: (code) => set({ proposedCode: code }),
+
+  setPendingDiff: (diff) => set({ pendingDiff: diff }),
+
+  setDiffStats: (stats) => set({ diffStats: stats }),
 
   setSessionId: (id) => set({ sessionId: id }),
 

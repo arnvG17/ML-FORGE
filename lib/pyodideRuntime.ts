@@ -19,103 +19,86 @@ export interface VariableInfo {
   shape: string;
 }
 
-// ── Stdout / Plot capture preamble ──────────────────────────────────
-const CAPTURE_PREAMBLE = `
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import sys, io, base64
+// ── PUBLIC API ──────────────────────────────────────────────────────
 
-_forge_stdout = io.StringIO()
-sys.stdout = _forge_stdout
-_forge_figs_before = set(plt.get_fignums())
-`;
-
-const CAPTURE_EPILOGUE = `
-import json as _forge_json
-
-# Collect stdout
-sys.stdout = sys.__stdout__
-_forge_captured_stdout = _forge_stdout.getvalue().split('\\n')
-
-# Collect new plots as base64 from matplotlib
-_forge_new_figs = set(plt.get_fignums()) - _forge_figs_before
-_forge_plots = []
-for _forge_fn in sorted(_forge_new_figs):
-    _forge_fig = plt.figure(_forge_fn)
-    _forge_buf = io.BytesIO()
-    _forge_fig.savefig(_forge_buf, format='png', bbox_inches='tight', facecolor=_forge_fig.get_facecolor())
-    _forge_buf.seek(0)
-    _forge_plots.append(base64.b64encode(_forge_buf.read()).decode('utf-8'))
-    _forge_buf.close()
-    plt.close(_forge_fig)
-
-# Check for forge_result
-_forge_extra_stdout = []
-if 'forge_result' in globals():
-    _fr = globals()['forge_result']
-    if isinstance(_fr, dict):
-        # Add plots if any
-        if 'plots' in _fr and isinstance(_fr['plots'], dict):
-            for _pname, _pdata in _fr['plots'].items():
-                if _pdata not in _forge_plots:
-                    _forge_plots.append(_pdata)
-        
-        # Add metrics as stdout lines
-        if 'metrics' in _fr and isinstance(_fr['metrics'], dict):
-            _forge_extra_stdout.append("METRICS:")
-            for _mname, _mval in _fr['metrics'].items():
-                _forge_extra_stdout.append(f"  {_mname}: {_mval}")
-        
-        # Add explanation
-        if 'explanation' in _fr and _fr['explanation']:
-            _forge_extra_stdout.append("")
-            _forge_extra_stdout.append("EXPLANATION:")
-            _forge_extra_stdout.append(str(_fr['explanation']))
-
-_forge_run_result = _forge_json.dumps({
-    "stdout": _forge_captured_stdout + _forge_extra_stdout,
-    "plots": _forge_plots
-})
-`;
-
-// ── Helper: run code and extract RunResult ──────────────────────────
+/**
+ * Runs user code in the shared Pyodide namespace.
+ * Captures stdout and any new matplotlib plots.
+ */
 async function executeAndCapture(code: string): Promise<RunResult> {
   const pyodide = await getPyodide();
 
-  const fullCode = CAPTURE_PREAMBLE + "\n" + code + "\n" + CAPTURE_EPILOGUE;
+  // The preamble runs BEFORE the user's code
+  // It snapshots which figures already exist so we can
+  // detect NEW figures created by the user's code
+  const preamble = `
+import sys, io, base64
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+# Capture stdout
+_forge_stdout = io.StringIO()
+sys.stdout = _forge_stdout
+
+# Snapshot existing figures BEFORE user code runs
+_forge_figs_before = set(plt.get_fignums())
+`;
+
+  // The postamble runs AFTER the user's code
+  // It captures any new figures as base64 PNG strings
+  const postamble = `
+# Restore stdout
+sys.stdout = sys.__stdout__
+
+# Find figures created by user's code
+_forge_figs_after = set(plt.get_fignums())
+_forge_new_figs = _forge_figs_after - _forge_figs_before
+
+# Encode each new figure as base64 PNG
+_forge_plots = []
+for _forge_fig_num in sorted(_forge_new_figs):
+    _forge_fig = plt.figure(_forge_fig_num)
+    _forge_buf = io.BytesIO()
+    _forge_fig.savefig(
+        _forge_buf,
+        format='png',
+        bbox_inches='tight',
+        dpi=150,
+        facecolor=_forge_fig.get_facecolor()
+    )
+    _forge_buf.seek(0)
+    _forge_plots.append(
+        base64.b64encode(_forge_buf.read()).decode('utf-8')
+    )
+    plt.close(_forge_fig)
+`;
 
   try {
-    await pyodide.runPythonAsync(fullCode);
+    // Run preamble + user code + postamble in one call
+    await pyodide.runPythonAsync(preamble + '\n' + code + '\n' + postamble);
 
-    const rawJson = pyodide.globals.get("_forge_run_result");
-    if (!rawJson) {
-      return { stdout: [], plots: [], error: null };
-    }
+    // Pull stdout back to JavaScript
+    const stdoutRaw: string = pyodide.globals.get('_forge_stdout').getvalue();
+    const stdout = stdoutRaw.split('\n').filter((l: string) => l.trim() !== '');
 
-    const parsed = JSON.parse(rawJson);
-    // Filter empty trailing lines from stdout
-    const stdout = (parsed.stdout as string[]).filter(
-      (line: string, i: number, arr: string[]) =>
-        i < arr.length - 1 || line.trim() !== ""
-    );
+    // Pull plots back to JavaScript
+    const plotsPy = pyodide.globals.get('_forge_plots');
+    const plots: string[] = plotsPy.toJs();   // JS array of base64 strings
 
-    return {
-      stdout,
-      plots: parsed.plots || [],
-      error: null,
-    };
-  } catch (e: any) {
-    // Restore stdout in case the error happened mid-execution
-    try {
-      await pyodide.runPythonAsync("import sys; sys.stdout = sys.__stdout__");
-    } catch {
-      // ignore
-    }
+    return { stdout, plots, error: null };
+
+  } catch (err: any) {
+    // Make sure stdout is always restored even on error
+    try { 
+      const py = await getPyodide();
+      py.runPython('import sys; sys.stdout = sys.__stdout__'); 
+    } catch {}
+
     return {
       stdout: [],
-      plots: [],
-      error: e.message || String(e),
+      plots:  [],
+      error:  err?.message ?? String(err)
     };
   }
 }

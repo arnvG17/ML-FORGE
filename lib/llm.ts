@@ -1,5 +1,70 @@
 import { Groq } from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { keyManager } from "./llmKeyManager";
+
+async function callGroqWithRotation(
+  params: any,
+  maxAttempts: number = 6
+): Promise<string> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const key = keyManager.getNextKey();
+    const groq = new Groq({ apiKey: key });
+
+    try {
+      const response = await groq.chat.completions.create(params);
+      return response.choices[0]?.message?.content ?? "";
+    } catch (err: any) {
+      const status = err?.status ?? err?.statusCode;
+
+      if (status === 429) {
+        const retryAfter = parseInt(err?.headers?.['retry-after'] ?? '60', 10);
+        keyManager.markRateLimited(key, retryAfter);
+      } else if (status === 401 || status === 403) {
+        keyManager.markFailed(key);
+      } else if (status >= 500) {
+        await new Promise(r => setTimeout(r, 1000));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('All LLM keys exhausted or failed. Try again shortly.');
+}
+
+async function* streamGroqWithRotation(
+  params: any,
+  maxAttempts: number = 6
+): AsyncGenerator<string> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const key = keyManager.getNextKey();
+    const groq = new Groq({ apiKey: key });
+
+    try {
+      const stream = await groq.chat.completions.create(params) as any;
+      for await (const chunk of stream) {
+        const token = chunk.choices[0]?.delta?.content;
+        if (token) {
+          yield token;
+        }
+      }
+      return;
+    } catch (err: any) {
+      const status = err?.status ?? err?.statusCode;
+
+      if (status === 429) {
+        const retryAfter = parseInt(err?.headers?.['retry-after'] ?? '60', 10);
+        keyManager.markRateLimited(key, retryAfter);
+      } else if (status === 401 || status === 403) {
+        keyManager.markFailed(key);
+      } else if (status >= 500) {
+        await new Promise(r => setTimeout(r, 1000));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('All LLM keys exhausted or failed. Try again shortly.');
+}
 
 /**
  * Streams tokens using a preferred provider first, with fallback.
@@ -50,11 +115,7 @@ async function* streamGroq(
   context: Array<{ role: string; content: string }> = [],
   systemPrompt: string = PYODIDE_SYSTEM_PROMPT
 ) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is missing");
-
   console.log("[LLM] Attempting Groq (llama-3.3-70b-versatile)...");
-  const groq = new Groq({ apiKey });
 
   const messages: any[] = [{ role: "system", content: systemPrompt }];
   if (context.length > 0) {
@@ -62,7 +123,8 @@ async function* streamGroq(
   }
   messages.push({ role: "user", content: prompt });
 
-  const stream = await groq.chat.completions.create({
+  let tokenCount = 0;
+  const stream = streamGroqWithRotation({
     model: "llama-3.3-70b-versatile",
     temperature: 0.1,
     max_tokens: 8192,
@@ -70,13 +132,9 @@ async function* streamGroq(
     messages,
   });
 
-  let tokenCount = 0;
-  for await (const chunk of stream) {
-    const token = chunk.choices[0]?.delta?.content;
-    if (token) {
-      tokenCount++;
-      yield token;
-    }
+  for await (const token of stream) {
+    tokenCount++;
+    yield token;
   }
   console.log(`[LLM] Groq stream completed. Tokens: ${tokenCount}, Duration: ${Date.now() - start}ms`);
 }
@@ -145,19 +203,15 @@ async function thinkWithFallback(prompt: string, preferGemini = false): Promise<
 }
 
 async function thinkGroq(prompt: string, start: number): Promise<string> {
-  const apiKey = process.env.GROQ_API_KEY2;
-  if (!apiKey) throw new Error("GROQ_API_KEY2 is missing");
-
-  console.log("[LLM] Thinker: Attempting Groq (llama-3.3-70b-versatile) with API KEY 2...");
-  const groq = new Groq({ apiKey });
-  const completion = await groq.chat.completions.create({
+  console.log("[LLM] Thinker: Attempting Groq (llama-3.3-70b-versatile) with key rotation...");
+  
+  const result = await callGroqWithRotation({
     model: "llama-3.3-70b-versatile",
     temperature: 0.2,
     max_tokens: 1024,
     messages: [{ role: "user", content: prompt }],
   });
 
-  const result = completion.choices[0]?.message?.content || "";
   console.log(`[LLM] Thinker: Groq completed in ${Date.now() - start}ms`);
   return result;
 }
@@ -431,41 +485,146 @@ export async function* streamFlaskApp(intent: string) {
 // ═══════════════════════════════════════════════════════════════════
 
 const COMPILER_SYSTEM_PROMPT = `
-You are an AI coding tutor inside Forge, a Python compiler for
-beginners. You explain code by writing NEW Python programs that
-run live and produce visible output. Never explain in plain text.
+You are an AI coding tutor inside Forge, a Python compiler for beginners.
 
-═ ABSOLUTE RULES ═
-1. Your entire response must be valid, runnable Python code.
-2. All explanations go inside # comments. No prose outside them.
-3. First line must start with # describing what you will show.
-4. BE PROACTIVE WITH VISUALS: If the user has data or is asking about ML, ALWAYS generate a seaborn/matplotlib plot. "Smarter" tutors show, they don't just tell.
-5. Maximum 35 lines. Focused beats comprehensive.
-6. The code shares the user's namespace. Use their variable names.
-   Check VARIABLES IN SCOPE before writing anything.
-7. PLOT AESTHETICS:
-   - fig, ax = plt.subplots(figsize=(8, 5), facecolor='#050505')
-   - ax.set_facecolor('#050505')
-   - ax.tick_params(colors='#444444', labelsize=8)
-   - for s in ax.spines.values(): s.set_color('#222222')
-   - Use sns.despine() for a cleaner look.
+═ 1. MODIFYING USER'S CODE ═
+If the user asks to "Suggest additions", "Fix errors", or change their main code:
+- Explain what you are changing in plain text.
+- Provide the COMPLETE revised main code wrapped in \`\`\`python ... \`\`\`.
+- We will display this as a diff editor for them to accept/reject.
 
-═ WHEN ASKED TO EXPLAIN ═
-  Use their actual variables. Show with print() what is inside them.
-  If explaining a model, plot the predictions vs actuals.
+═ 2. VISUAL EXPLANATIONS (When NOT modifying main code) ═
+If the user asks "Explain this", or you want to show a concept, write a NEW Python program that runs live and produces visible output.
+- Your entire response must be valid, runnable Python code (raw text, no markdown).
+- All explanations go inside # comments. No prose outside them.
+- BE PROACTIVE WITH VISUALS: If the user has data or is asking about ML, ALWAYS generate a seaborn/matplotlib plot.
+- Maximum 35 lines. Focused beats comprehensive.
+- The code shares the user's namespace. Use their variable names. Check VARIABLES IN SCOPE.
 
-═ WHEN ASKED WHAT TO ADD NEXT ═
-  Write the next logical extension. Show it working with a plot.
-  Model trained → show correlation heatmap or residual plot.
+PLOT AESTHETICS:
+- fig, ax = plt.subplots(figsize=(8, 5), facecolor='#050505')
+- ax.set_facecolor('#050505')
+- ax.tick_params(colors='#444444', labelsize=8)
+- for s in ax.spines.values(): s.set_color('#222222')
+- Use sns.despine() for a cleaner look.
 
-═ WHEN CODE HAS AN ERROR ═
-  Fix the specific error. Comment every change and why.
-  Show the fixed version printing success or plotting a fix validation.
-
-═ AUTO-EXPLAIN (First Run) ═
-  Generate a quick visualization of their main data variable.
-  If it's a dataframe, show .head() AND a distribution plot.
+AUTO-EXPLAIN (First Run):
+Generate a quick visualization of their main data variable. If it's a dataframe, show .head() AND a distribution plot. Raw python only.
 `;
+
+/**
+ * Stage 3: The new tutor interface
+ * Explains code in Chat (Explanation) + Editor (Diff) + VM (Plots)
+ */
+export async function getCompilerResponse(
+  userCode: string,
+  userMessage: string,
+  variables: string,   // e.g. "model: DecisionTreeClassifier\nX_train: ndarray (120,4)"
+  lastOutput: string   // last few lines of stdout
+): Promise<{ explanation: string; fullCode: string; suggestions: string[] }> {
+  const key = keyManager.getNextKey()
+  const groq = new Groq({ apiKey: key })
+
+  const systemPrompt = `
+You are an AI tutor inside a Python learning tool.
+Always respond with a JSON object. Nothing else. No markdown. No backticks.
+First character must be {
+
+JSON shape:
+{
+  "explanation": "...",
+  "fullCode": "...",
+  "suggestions": ["...", "..."]
+}
+
+EXPLANATION field rules:
+- Plain English only. No Python code inside this field.
+- Maximum 4 sentences.
+- Use simple analogies. Assume the reader is a beginner.
+- You may reference variable names like \`model\` or \`max_depth\`
+  using backtick notation — these render as inline code in the UI.
+- Never paste arrays, numbers, or raw output values.
+- End with one sentence pointing to what changed:
+  "Check the editor to see the change." or
+  "The output panel will show the new chart."
+
+Good explanation example:
+  "Right now your tree can only ask 3 questions before deciding
+   which flower species it is. I've increased \`max_depth\` to 5
+   so it can learn finer distinctions. I also added a chart that
+   shows which measurements it relies on most. Check the editor
+   to review the change."
+
+Bad explanation example (never do this):
+  "model = DecisionTreeClassifier(max_depth=5)\nThis changes the
+   hyperparameter max_depth from 3 to 5, which increases the
+   depth of the decision tree and allows it to..."
+
+FULL CODE field rules:
+- Return the COMPLETE Python file from top to bottom.
+- Include the user's original code with your changes applied.
+- If no changes are needed, return the original code unchanged.
+- The code must be valid Python with no syntax errors.
+- For matplotlib, always set these styles:
+    fig.patch.set_facecolor('#060606')
+    ax.set_facecolor('#060606')
+    ax.tick_params(colors='#555555')
+    for spine in ax.spines.values():
+        spine.set_color('#222222')
+
+SUGGESTIONS field rules:
+- Exactly 2 items.
+- Plain English questions a beginner would ask.
+- Short. Curious. Not technical.
+  Good: "What happens if I make the tree deeper?"
+  Bad:  "How does Gini impurity affect the split criterion?"
+`
+
+  const userPrompt = `
+USER'S CURRENT CODE:
+${userCode}
+
+VARIABLES IN SCOPE:
+${variables}
+
+LAST OUTPUT:
+${lastOutput}
+
+USER'S QUESTION:
+${userMessage}
+`
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.2,
+      max_tokens: 1200,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userPrompt }
+      ]
+    })
+    const raw = response.choices[0]?.message?.content ?? '{}'
+    const parsed = JSON.parse(raw)
+    return {
+      explanation: parsed.explanation ?? '',
+      fullCode:    parsed.fullCode    ?? userCode,
+      suggestions: parsed.suggestions ?? []
+    }
+  } catch (err: any) {
+    if (err?.status === 429) {
+      const retryAfter = parseInt(err?.headers?.['retry-after'] ?? '60', 10)
+      keyManager.markRateLimited(key, retryAfter)
+      // retry with next key
+      return getCompilerResponse(userCode, userMessage, variables, lastOutput)
+    }
+    if (err?.status === 401) {
+      keyManager.markFailed(key)
+      return getCompilerResponse(userCode, userMessage, variables, lastOutput)
+    }
+    throw err
+  }
+}
 
 export async function* streamCompilerResponse(
   userCode: string,

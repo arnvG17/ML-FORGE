@@ -8,6 +8,16 @@ import {
   inspectNamespace,
 } from "@/lib/pyodideRuntime";
 
+import {
+  getCompilerResponse,
+} from "@/lib/llm";
+import {
+  applyDiffToEditor,
+  acceptDiff as libAcceptDiff,
+  rejectDiff as libRejectDiff,
+} from "@/lib/editorDiff";
+import * as monaco from "monaco-editor";
+
 // ═══════════════════════════════════════════════════════════════════
 // Starter Examples
 // ═══════════════════════════════════════════════════════════════════
@@ -77,97 +87,105 @@ for i in range(8):
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// Auto-explain message (internal, not shown as user bubble)
-// ═══════════════════════════════════════════════════════════════════
-
-const AUTO_EXPLAIN_MESSAGE =
-  "Look at the variables in scope. Write 3-5 lines of code that reveal what the key objects contain — shapes, types, values. Make it feel like 'here is what just happened in your code'.";
-
-// ═══════════════════════════════════════════════════════════════════
 // Hook
 // ═══════════════════════════════════════════════════════════════════
 
-export function useCompilerOrchestrator() {
+export function useCompilerOrchestrator(editor: monaco.editor.IStandaloneCodeEditor | null) {
   const store = useCompilerStore();
   const isSubmittingRef = useRef(false);
 
   // ── submitChat ──────────────────────────────────────────────────
   const submitChat = useCallback(
-    async (message: string, isInternal = false) => {
-      if (isSubmittingRef.current) return;
+    async (message: string) => {
+      if (isSubmittingRef.current || !editor) return;
       isSubmittingRef.current = true;
 
       const state = useCompilerStore.getState();
 
       try {
-        // Add user bubble (unless internal auto-explain)
-        if (!isInternal) {
-          state.addUserMessage(message);
-        }
-
+        state.addUserMessage(message);
         state.setIsGenerating(true);
-        const aiMsgId = state.addAIMessage("", "");
 
-        // Build chat history for the API
-        const chatForApi = useCompilerStore
-          .getState()
-          .chatHistory.filter((m) => m.role === "user" || (m.role === "ai" && m.code))
-          .map((m) => ({
-            role: m.role,
-            text: m.role === "user" ? m.text : m.code,
-          }));
+        const variables = state.variables
+          .map(v => `${v.name}: ${v.typeName} ${v.shape}`)
+          .join('\n');
 
-        // Stream from API
-        const response = await fetch("/api/compiler/stream", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userCode: state.userCode,
-            variables: state.variables,
-            chatHistory: chatForApi,
-            userMessage: message,
-          }),
-        });
+        const lastOutput = (state.window1Output?.stdout ?? []).slice(-5).join('\n');
 
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(errText || "Failed to stream from LLM");
+        // Call LLM — get back explanation + fullCode + suggestions
+        const response = await getCompilerResponse(
+          state.userCode,
+          message,
+          variables,
+          lastOutput
+        );
+
+        // STREAM 1 → explanation goes to chat
+        state.addAIMessage(response.explanation, "");
+        // We handle suggestions if needed, the store needs updating to support them
+        // For now, suggestions are not in the message type but we can add them
+
+        // STREAM 2 → code diff goes to editor
+        const codeChanged = response.fullCode.trim() !== state.userCode.trim();
+
+        if (codeChanged) {
+          const diff = applyDiffToEditor(
+            editor,
+            state.userCode,
+            response.fullCode
+          );
+          state.setPendingDiff(diff);
+          
+          const added = diff.displayLines.filter(l => l.type === 'added').length;
+          const removed = diff.displayLines.filter(l => l.type === 'removed').length;
+          state.setDiffStats({ added, removed });
         }
 
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
+        state.setIsGenerating(false);
 
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            accumulated += decoder.decode(value);
-            useCompilerStore
-              .getState()
-              .updateAIMessageCode(aiMsgId, accumulated);
-          }
-        }
-
-        useCompilerStore.getState().setIsGenerating(false);
-
-        // Execute the AI's code in the shared namespace
-        if (accumulated.trim()) {
-          useCompilerStore.getState().setIsExecutingAI(true);
-          const result = await pyRunAI(accumulated);
-          useCompilerStore.getState().setAIMessageOutput(aiMsgId, result);
-          useCompilerStore.getState().setIsExecutingAI(false);
-        }
       } catch (err: any) {
         console.error("[CompilerOrchestrator] submitChat error:", err.message);
-        useCompilerStore.getState().setIsGenerating(false);
-        useCompilerStore.getState().setIsExecutingAI(false);
+        state.setIsGenerating(false);
       } finally {
         isSubmittingRef.current = false;
       }
     },
-    []
+    [editor]
   );
+
+  // ── acceptDiff ──────────────────────────────────────────────────
+  const acceptDiff = useCallback(async () => {
+    const state = useCompilerStore.getState();
+    if (!state.pendingDiff || !editor) return;
+
+    // 1. Apply accepted code to editor
+    const finalCode = libAcceptDiff(editor, state.pendingDiff);
+
+    // 2. Update store
+    state.setUserCode(finalCode);
+    state.setPendingDiff(null);
+    state.setDiffStats(null);
+
+    // 3. STREAM 3 → run code, output goes to VM
+    state.setPyodideStatus("running");
+    const result = await pyRunUser(finalCode);
+    state.setWindow1Output(result);
+
+    if (!result.error) {
+      const vars = await inspectNamespace();
+      state.setVariables(vars);
+    }
+    state.setPyodideStatus("ready");
+  }, [editor]);
+
+  // ── rejectDiff ──────────────────────────────────────────────────
+  const rejectDiff = useCallback(() => {
+    const state = useCompilerStore.getState();
+    if (!state.pendingDiff || !editor) return;
+    libRejectDiff(editor, state.pendingDiff);
+    state.setPendingDiff(null);
+    state.setDiffStats(null);
+  }, [editor]);
 
   // ── runUserCode ─────────────────────────────────────────────────
   const runUserCode = useCallback(async () => {
@@ -175,22 +193,16 @@ export function useCompilerOrchestrator() {
     state.setPyodideStatus("running");
 
     const result = await pyRunUser(state.userCode);
-    useCompilerStore.getState().setWindow1Output(result);
+    state.setWindow1Output(result);
 
     // Inspect namespace after successful run
     if (!result.error) {
       const vars = await inspectNamespace();
-      useCompilerStore.getState().setVariables(vars);
+      state.setVariables(vars);
     }
 
-    useCompilerStore.getState().setPyodideStatus("ready");
-
-    // Auto-explain on first successful run
-    const currentHistory = useCompilerStore.getState().chatHistory;
-    if (currentHistory.length === 0 && !result.error) {
-      await submitChat(AUTO_EXPLAIN_MESSAGE, true);
-    }
-  }, [submitChat]);
+    state.setPyodideStatus("ready");
+  }, []);
 
   // ── loadExample ─────────────────────────────────────────────────
   const loadExample = useCallback((type: string) => {
@@ -207,6 +219,8 @@ export function useCompilerOrchestrator() {
   return {
     runUserCode,
     submitChat,
+    acceptDiff,
+    rejectDiff,
     loadExample,
     isRunning: store.pyodideStatus === "running",
   };

@@ -20,7 +20,8 @@ export default function PlotViewer({ name, base64 }: PlotViewerProps) {
         src={`data:image/png;base64,${base64}`}
         alt={name}
         className="w-full bg-elevated border border-border"
-        style={{ aspectRatio: "auto" }}
+        style={{ width: "100%", marginBottom: "6px", opacity: 0, transition: "opacity 200ms" }}
+        onLoad={(e) => (e.currentTarget.style.opacity = "1")}
       />
     </div>
   );

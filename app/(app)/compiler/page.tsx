@@ -8,6 +8,7 @@ import { SignOutButton } from "@/lib/auth";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Editor from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import useSWR from "swr";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Sparkles, Terminal, Play, Save, ChevronLeft, Layout, Cpu } from "lucide-react";
@@ -34,10 +35,15 @@ function CompilerContent() {
     chatHistory,
     isGenerating,
     isExecutingAI,
+    proposedCode,
+    pendingDiff,
+    diffStats,
     setPyodideStatus,
+    setProposedCode,
   } = useCompilerStore();
 
-  const { runUserCode, submitChat, loadExample } = useCompilerOrchestrator();
+  const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const { runUserCode, submitChat, acceptDiff, rejectDiff, loadExample } = useCompilerOrchestrator(editor);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -325,14 +331,48 @@ function CompilerContent() {
               </div>
             </div>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 relative">
+              {pendingDiff && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-[#0a0a0a] border border-white/10 p-2 rounded-xl shadow-2xl backdrop-blur-xl border-l-[#f97316] border-l-2">
+                  <div className="px-3 py-1 flex items-center gap-3 border-r border-white/10">
+                    <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-[0.2em]">DIFF PENDING</span>
+                    {diffStats && (
+                      <div className="flex gap-2 text-[9px] font-mono">
+                        <span className="text-green-500">+{diffStats.added}</span>
+                        <span className="text-red-500">-{diffStats.removed}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pl-2">
+                    <button
+                      onClick={acceptDiff}
+                      className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-white text-black hover:bg-zinc-200 rounded-lg transition-all"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={rejectDiff}
+                      className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <Editor
                 height="100%"
                 language="python"
                 theme="vs-dark"
                 value={userCode}
-                onChange={(val) => setUserCode(val || "")}
+                onChange={(val) => {
+                  // Only allow edits if no diff is pending
+                  if (!pendingDiff) {
+                    setUserCode(val || "");
+                  }
+                }}
                 onMount={(editor) => {
+                  setEditor(editor);
                   editor.addAction({
                     id: "run-code",
                     label: "Run Code",
@@ -347,6 +387,7 @@ function CompilerContent() {
                   scrollBeyondLastLine: false,
                   lineNumbers: "on",
                   renderLineHighlight: "all",
+                  readOnly: !!pendingDiff,
                   scrollbar: {
                     vertical: "hidden",
                     horizontal: "hidden",

@@ -120,3 +120,25 @@ pre,
   font-weight: 800 !important;
   letter-spacing: -0.04em !important;
 }
+
+/* Diff line backgrounds — applied via Monaco decorations */
+.diff-line-removed {
+  background-color: rgba(80, 20, 20, 0.4) !important;
+}
+.diff-line-added {
+  background-color: rgba(20, 60, 20, 0.4) !important;
+}
+
+/* Gutter markers (the +/− symbols in the line number column) */
+.diff-gutter-removed::before {
+  content: '−';
+  color: #7a3333;
+  font-size: 12px;
+  font-weight: bold;
+}
+.diff-gutter-added::before {
+  content: '+';
+  color: #336633;
+  font-size: 12px;
+  font-weight: bold;
+}
