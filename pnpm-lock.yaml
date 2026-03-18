@@ -19,7 +19,7 @@ importers:
         version: 0.24.1
       '@monaco-editor/react':
         specifier: ^4.6.0
-        version: 4.7.0(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 4.7.0(monaco-editor@0.46.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@paper-design/shaders-react':
         specifier: ^0.0.71
         version: 0.0.71(@types/react@18.3.28)(react@18.3.1)
@@ -41,6 +41,9 @@ importers:
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@18.3.1)
+      monaco-editor:
+        specifier: ^0.46.0
+        version: 0.46.0
       mongodb:
         specifier: ^7.1.0
         version: 7.1.0
@@ -935,6 +938,9 @@ packages:
   minimatch@3.1.5:
     resolution: {integrity: sha512-VgjWUsnnT6n+NUk6eZq77zeFdpW2LWDzP6zFGrCbHXiYNul5Dzqk2HHQ5uFH2DNW5Xbp8+jVzaeNt94ssEEl4w==}
 
+  monaco-editor@0.46.0:
+    resolution: {integrity: sha512-ADwtLIIww+9FKybWscd7OCfm9odsFYHImBRI1v9AviGce55QY8raT+9ihH8jX/E/e6QVSGM+pKj4jSUSRmALNQ==}
+
   monaco-editor@0.55.1:
     resolution: {integrity: sha512-jz4x+TJNFHwHtwuV9vA9rMujcZRb0CEilTEwG2rRSpe/A7Jdkuj8xPKttCgOh+v/lkHy7HsZ64oj+q3xoAFl9A==}
 
@@ -1562,6 +1568,13 @@ snapshots:
     dependencies:
       state-local: 1.0.7
 
+  '@monaco-editor/react@4.7.0(monaco-editor@0.46.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@monaco-editor/loader': 1.7.0
+      monaco-editor: 0.46.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
   '@monaco-editor/react@4.7.0(monaco-editor@0.55.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@monaco-editor/loader': 1.7.0
@@ -2098,6 +2111,8 @@ snapshots:
   minimatch@3.1.5:
     dependencies:
       brace-expansion: 1.1.12
+
+  monaco-editor@0.46.0: {}
 
   monaco-editor@0.55.1:
     dependencies:

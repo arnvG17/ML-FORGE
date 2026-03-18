@@ -34,5 +34,20 @@ export const keyManager = {
 
   markFailed(key: string) {
     this.markRateLimited(key, 3600)
+  },
+  getTotalKeys(): number {
+    return KEYS.length;
+  },
+  availableCount(): number {
+    const now = Date.now();
+    return KEYS.filter(key => (cooldowns.get(key) ?? 0) <= now).length;
+  },
+  status() {
+    const now = Date.now();
+    return KEYS.map(key => ({
+      key: `...${key.slice(-4)}`,
+      available: (cooldowns.get(key) ?? 0) <= now,
+      cooldownUntil: cooldowns.get(key) ?? 0
+    }));
   }
 }
