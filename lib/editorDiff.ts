@@ -1,4 +1,4 @@
-import * as monaco from 'monaco-editor'
+import type * as monacoType from 'monaco-editor'
 
 // One line in a diff
 export interface DiffLine {
@@ -85,7 +85,8 @@ function buildDisplayContent(diffLines: DiffLine[]): string {
 // ── Step 3: Apply the diff to the Monaco editor ─────────────────
 
 export function applyDiffToEditor(
-  editor: monaco.editor.IStandaloneCodeEditor,
+  monaco: typeof monacoType,
+  editor: monacoType.editor.IStandaloneCodeEditor,
   originalCode: string,
   proposedCode: string
 ): PendingDiff {
@@ -96,7 +97,7 @@ export function applyDiffToEditor(
   editor.getModel()?.setValue(displayContent)
 
   // Build decorations
-  const decorations: monaco.editor.IModelDeltaDecoration[] = []
+  const decorations: monacoType.editor.IModelDeltaDecoration[] = []
   let lineNum = 1
 
   for (const line of diffLines) {
@@ -135,7 +136,7 @@ export function applyDiffToEditor(
 // ── Step 4: Accept — keep added lines, remove removed lines ──────
 
 export function acceptDiff(
-  editor: monaco.editor.IStandaloneCodeEditor,
+  editor: monacoType.editor.IStandaloneCodeEditor,
   diff: PendingDiff
 ): string {
   // Final code = all unchanged + all added lines (no removed)
@@ -152,7 +153,7 @@ export function acceptDiff(
 // ── Step 5: Reject — restore original, clear decorations ────────
 
 export function rejectDiff(
-  editor: monaco.editor.IStandaloneCodeEditor,
+  editor: monacoType.editor.IStandaloneCodeEditor,
   diff: PendingDiff
 ): void {
   editor.getModel()?.setValue(diff.originalCode)

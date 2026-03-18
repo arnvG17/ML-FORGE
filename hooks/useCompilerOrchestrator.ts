@@ -16,7 +16,7 @@ import {
   acceptDiff as libAcceptDiff,
   rejectDiff as libRejectDiff,
 } from "@/lib/editorDiff";
-import * as monaco from "monaco-editor";
+import type * as monacoType from "monaco-editor";
 
 // ═══════════════════════════════════════════════════════════════════
 // Starter Examples
@@ -90,14 +90,17 @@ for i in range(8):
 // Hook
 // ═══════════════════════════════════════════════════════════════════
 
-export function useCompilerOrchestrator(editor: monaco.editor.IStandaloneCodeEditor | null) {
+export function useCompilerOrchestrator(
+  editor: monacoType.editor.IStandaloneCodeEditor | null,
+  monaco: typeof monacoType | null
+) {
   const store = useCompilerStore();
   const isSubmittingRef = useRef(false);
 
   // ── submitChat ──────────────────────────────────────────────────
   const submitChat = useCallback(
     async (message: string) => {
-      if (isSubmittingRef.current || !editor) return;
+      if (isSubmittingRef.current || !editor || !monaco) return;
       isSubmittingRef.current = true;
 
       const state = useCompilerStore.getState();
@@ -130,6 +133,7 @@ export function useCompilerOrchestrator(editor: monaco.editor.IStandaloneCodeEdi
 
         if (codeChanged) {
           const diff = applyDiffToEditor(
+            monaco,
             editor,
             state.userCode,
             response.fullCode
@@ -150,7 +154,7 @@ export function useCompilerOrchestrator(editor: monaco.editor.IStandaloneCodeEdi
         isSubmittingRef.current = false;
       }
     },
-    [editor]
+    [editor, monaco]
   );
 
   // ── acceptDiff ──────────────────────────────────────────────────

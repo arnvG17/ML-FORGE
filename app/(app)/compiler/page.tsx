@@ -8,7 +8,6 @@ import { SignOutButton } from "@/lib/auth";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Editor from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
 import useSWR from "swr";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Sparkles, Terminal, Play, Save, ChevronLeft, Layout, Cpu } from "lucide-react";
@@ -42,8 +41,9 @@ function CompilerContent() {
     setProposedCode,
   } = useCompilerStore();
 
-  const [editor, setEditor] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const { runUserCode, submitChat, acceptDiff, rejectDiff, loadExample } = useCompilerOrchestrator(editor);
+  const [editor, setEditor] = useState<any>(null);
+  const [monaco, setMonaco] = useState<any>(null);
+  const { runUserCode, submitChat, acceptDiff, rejectDiff, loadExample } = useCompilerOrchestrator(editor, monaco);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -371,12 +371,13 @@ function CompilerContent() {
                     setUserCode(val || "");
                   }
                 }}
-                onMount={(editor) => {
+                onMount={(editor, monaco) => {
                   setEditor(editor);
+                  setMonaco(monaco);
                   editor.addAction({
                     id: "run-code",
                     label: "Run Code",
-                    keybindings: [2048 | 3], // Cmd+Enter
+                    keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter], // Cmd+Enter
                     run: () => handleRun(),
                   });
                 }}
