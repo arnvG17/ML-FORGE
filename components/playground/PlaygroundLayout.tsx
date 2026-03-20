@@ -5,6 +5,7 @@ import CenterPanel from "./CenterPanel";
 import RightPanel from "./RightPanel";
 import { useAgentStore } from "@/store/agent";
 import { useSessionStore } from "@/store/session";
+import { useOutputStore } from "@/store/output";
 import { useCompilerStore } from "@/store/compiler";
 import { useRouter } from "next/navigation";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
@@ -135,11 +136,17 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Reignite existing session on mount
+  // Reignite existing session on mount or reset for new session
   useEffect(() => {
     if (sessionId && sessionId !== "new") {
       setStarted(true);
       reigniteSession(sessionId);
+    } else if (sessionId === "new") {
+      // Reset all stores for a fresh new session
+      useAgentStore.getState().reset();
+      useOutputStore.getState().reset();
+      useSessionStore.getState().resetSession();
+      setStarted(false);
     }
   }, [sessionId, reigniteSession]);
 

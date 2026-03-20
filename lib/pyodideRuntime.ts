@@ -48,15 +48,6 @@ try:
 except ImportError:
     print("Seaborn not available, using matplotlib only")
 
-# Import smart plot detection system
-try:
-    from smart_plot_detector import execute_with_smart_detection, SmartPlotDetector
-    print("Smart plot detector imported successfully")
-    _smart_detector_available = True
-except ImportError:
-    print("Smart plot detector not available, using fallback")
-    _smart_detector_available = False
-
 # Capture stdout
 _forge_stdout = io.StringIO()
 sys.stdout = _forge_stdout
@@ -64,12 +55,6 @@ sys.stdout = _forge_stdout
 # Snapshot existing figures BEFORE user code runs
 _forge_figs_before = set(plt.get_fignums())
 print(f"Figures before execution: {len(_forge_figs_before)}")
-
-# Initialize smart detection if available
-if _smart_detector_available:
-    print("[SMART RUNTIME] Smart detection system ready")
-else:
-    print("[SMART RUNTIME] Using standard plot detection")
 `;
 
   // The postamble runs AFTER the user's code
@@ -78,53 +63,37 @@ else:
 # Restore stdout
 sys.stdout = sys.__stdout__
 
-# SMART EXECUTION - Use intelligent detection if available
-if _smart_detector_available:
-    print("[SMART RUNTIME] Executing smart plot detection...")
-    try:
-        # Direct approach: check if forge_result exists and has empty plots
-        if 'forge_result' in globals():
-            forge_result = globals()['forge_result']
-            if isinstance(forge_result, dict) and 'plots' in forge_result:
-                plots_dict = forge_result['plots']
-                if isinstance(plots_dict, dict) and len(plots_dict) == 0:
-                    print("[SMART RUNTIME] Empty plots dict found - looking for make_plot function")
+# SMART EXECUTION - Simple direct approach
+if 'forge_result' in globals():
+    forge_result = globals()['forge_result']
+    if isinstance(forge_result, dict) and 'plots' in forge_result:
+        plots_dict = forge_result['plots']
+        if isinstance(plots_dict, dict) and len(plots_dict) == 0:
+            print("[SMART RUNTIME] Empty plots dict - attempting direct fix")
+            
+            # Simple approach: execute make_plot directly in the current context
+            try:
+                # Try to execute make_plot if it exists anywhere
+                exec_result = None
+                if 'make_plot' in globals():
+                    exec_result = globals()['make_plot']()
+                    print("[SMART RUNTIME] Called make_plot from globals")
+                else:
+                    # Try to find and execute make_plot from the current execution context
+                    try:
+                        exec_result = eval('make_plot()', globals())
+                        print("[SMART RUNTIME] Called make_plot via eval")
+                    except:
+                        print("[SMART RUNTIME] make_plot not found via eval")
+                
+                if exec_result and isinstance(exec_result, str) and len(exec_result) > 50:
+                    plots_dict['direct_plot'] = exec_result
+                    print("[SMART RUNTIME] Successfully added direct plot")
+                else:
+                    print("[SMART RUNTIME] Direct plot generation failed")
                     
-                    # Try to find make_plot in globals
-                    if 'make_plot' in globals() and callable(globals()['make_plot']):
-                        print("[SMART RUNTIME] Found make_plot in globals, calling it...")
-                        try:
-                            plot_result = globals()['make_plot']()
-                            if isinstance(plot_result, str) and len(plot_result) > 50:
-                                plots_dict['auto_generated_plot'] = plot_result
-                                print("[SMART RUNTIME] Successfully added auto-generated plot")
-                            else:
-                                print("[SMART RUNTIME] make_plot returned invalid result")
-                        except Exception as e:
-                            print(f"[SMART RUNTIME] Failed to call make_plot: {e}")
-                    else:
-                        print("[SMART RUNTIME] make_plot not found in globals")
-                        
-                        # Try to find it in locals by checking the last executed frame
-                        try:
-                            import sys
-                            frame = sys._getframe()
-                            if 'make_plot' in frame.f_locals and callable(frame.f_locals['make_plot']):
-                                print("[SMART RUNTIME] Found make_plot in frame locals, calling it...")
-                                plot_result = frame.f_locals['make_plot']()
-                                if isinstance(plot_result, str) and len(plot_result) > 50:
-                                    plots_dict['auto_generated_plot'] = plot_result
-                                    print("[SMART RUNTIME] Successfully added plot from locals")
-                        except Exception as e:
-                            print(f"[SMART RUNTIME] Failed to access frame locals: {e}")
-        
-        # Also run the standard smart detection as a fallback
-        user_code = """${code}"""
-        execute_with_smart_detection(user_code, globals())
-        print("[SMART RUNTIME] Smart detection completed")
-    except Exception as e:
-        print(f"[SMART RUNTIME] Smart detection failed: {e}")
-        print("[SMART RUNTIME] Falling back to standard detection")
+            except Exception as e:
+                print(f"[SMART RUNTIME] Direct fix failed: {e}")
 
 # Find figures created by user's code
 _forge_figs_after = set(plt.get_fignums())
