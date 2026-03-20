@@ -96,7 +96,7 @@ export function applyDiffToEditor(
   // Set editor content to the display version (shows both old and new)
   editor.getModel()?.setValue(displayContent)
 
-  // Build decorations
+  // Build decorations with enhanced GitHub-style styling
   const decorations: monacoType.editor.IModelDeltaDecoration[] = []
   let lineNum = 1
 
@@ -107,7 +107,11 @@ export function applyDiffToEditor(
         options: {
           isWholeLine: true,
           className: 'diff-line-removed',
-          linesDecorationsClassName: 'diff-gutter-removed'
+          linesDecorationsClassName: 'diff-gutter-removed',
+          minimap: {
+            color: '#ff6b6b',
+            position: monaco.editor.MinimapPosition.Inline
+          }
         }
       })
     } else if (line.type === 'added') {
@@ -116,7 +120,11 @@ export function applyDiffToEditor(
         options: {
           isWholeLine: true,
           className: 'diff-line-added',
-          linesDecorationsClassName: 'diff-gutter-added'
+          linesDecorationsClassName: 'diff-gutter-added',
+          minimap: {
+            color: '#51cf66',
+            position: monaco.editor.MinimapPosition.Inline
+          }
         }
       })
     }

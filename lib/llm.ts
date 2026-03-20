@@ -539,6 +539,12 @@ export async function getCompilerResponse(
 ): Promise<{ intent: "modification" | "explanation"; explanation: string; fullCode: string; suggestions: string[] }> {
   const key = keyManager.getNextKey()
   console.log("[getCompilerResponse] Using key starting with:", key?.slice(0, 10));
+  
+  if (!key) {
+    console.error("[getCompilerResponse] No Groq keys available!");
+    throw new Error("No Groq API keys available. Please add GROQ_API_KEY to your environment.");
+  }
+  
   const groq = new Groq({ apiKey: key })
 
   const systemPrompt = `${COMPILER_SYSTEM_PROMPT}\nAlways respond with a JSON object. First character must be {.`
@@ -570,7 +576,36 @@ ${userMessage}
     })
     const raw = response.choices[0]?.message?.content ?? '{}'
     console.log("[getCompilerResponse] Raw response from Groq:", raw);
-    const parsed = JSON.parse(raw)
+    console.log("[getCompilerResponse] Raw response length:", raw.length);
+    console.log("[getCompilerResponse] Raw response first 100 chars:", raw.substring(0, 100));
+    
+    // Try to parse with better error handling
+    let parsed;
+    try {
+      // Clean the response before parsing
+      let cleanedRaw = raw;
+      if (raw.includes('```')) {
+        cleanedRaw = raw.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+      }
+      if (raw.includes('/*') || raw.includes('*/')) {
+        cleanedRaw = cleanedRaw.replace(/\/\*[\s\S]*?\*\//g, '').trim();
+      }
+      
+      console.log("[getCompilerResponse] Cleaned response:", cleanedRaw);
+      parsed = JSON.parse(cleanedRaw);
+    } catch (parseError: any) {
+      console.error("[getCompilerResponse] JSON parse error:", parseError.message);
+      console.error("[getCompilerResponse] Attempting to parse as JSON manually...");
+      
+      // Try to extract JSON from the response
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        console.log("[getCompilerResponse] Found JSON match:", jsonMatch[0]);
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error(`Failed to parse JSON from Groq response: ${parseError.message}. Raw: ${raw}`);
+      }
+    }
     const result: { intent: "modification" | "explanation"; explanation: string; fullCode: string; suggestions: string[] } = {
       intent:      parsed.intent === "modification" ? "modification" : "explanation",
       explanation: parsed.explanation ?? '',

@@ -144,23 +144,31 @@ export function useCompilerOrchestrator(
           response.fullCode.trim() !== state.userCode.trim();
 
         if (codeChanged) {
-          const diff = applyDiffToEditor(
-            monaco,
-            editor,
-            state.userCode,
-            response.fullCode
-          );
-          state.setPendingDiff(diff);
-          
-          const added = diff.displayLines.filter(l => l.type === 'added').length;
-          const removed = diff.displayLines.filter(l => l.type === 'removed').length;
-          state.setDiffStats({ added, removed });
+          console.log("[CompilerOrchestrator] Creating diff for modification...");
+          try {
+            const diff = applyDiffToEditor(
+              monaco,
+              editor,
+              state.userCode,
+              response.fullCode
+            );
+            console.log("[CompilerOrchestrator] Diff created successfully");
+            state.setPendingDiff(diff);
+            
+            const added = diff.displayLines.filter(l => l.type === 'added').length;
+            const removed = diff.displayLines.filter(l => l.type === 'removed').length;
+            state.setDiffStats({ added, removed });
+          } catch (diffError: any) {
+            console.error("[CompilerOrchestrator] Diff creation error:", diffError.message);
+            throw diffError;
+          }
         }
 
         state.setIsGenerating(false);
 
       } catch (err: any) {
         console.error("[CompilerOrchestrator] submitChat error:", err.message);
+        console.error("[CompilerOrchestrator] error stack:", err.stack);
         state.addAIMessage(
           "I encountered an error while processing your request. Please check your connection and try again.",
           ""

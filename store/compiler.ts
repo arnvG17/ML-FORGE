@@ -40,6 +40,8 @@ interface CompilerState {
   setIsGenerating: (b: boolean) => void;
   setIsExecutingAI: (b: boolean) => void;
   resetChat: () => void;
+  saveChatToSession: () => void;
+  loadChatFromSession: () => void;
 }
 
 // ── Simple ID generator (avoids importing nanoid) ───────────────────
@@ -122,4 +124,25 @@ export const useCompilerStore = create<CompilerState>((set) => ({
       variables: [],
       window1Output: null,
     }),
+
+  saveChatToSession: () => {
+    const state = useCompilerStore.getState();
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('compiler_chat', JSON.stringify(state.chatHistory));
+    }
+  },
+
+  loadChatFromSession: () => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('compiler_chat');
+      if (saved) {
+        try {
+          const chatHistory = JSON.parse(saved);
+          set({ chatHistory });
+        } catch (e) {
+          console.warn('Failed to load chat from session:', e);
+        }
+      }
+    }
+  },
 }));

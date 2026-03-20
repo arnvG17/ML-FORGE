@@ -5,6 +5,7 @@ import { useCompilerStore } from "@/store/compiler";
 import { useCompilerOrchestrator } from "@/hooks/useCompilerOrchestrator";
 import { getPyodide } from "@/lib/pyodide-runner";
 import { SignOutButton } from "@/lib/auth";
+import { keyManager } from "@/lib/llmKeyManager";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Editor from "@monaco-editor/react";
@@ -97,6 +98,38 @@ function CompilerContent() {
     }
   };
 
+  // ── Global keyboard shortcuts ───────────────────────────────────
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
+      // Ctrl/Cmd + K to focus chat input from anywhere
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+      // Ctrl/Cmd + / to clear chat
+      if ((e.metaKey || e.ctrlKey) && e.key === "/") {
+        e.preventDefault();
+        const state = useCompilerStore.getState();
+        state.resetChat();
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
+  // ── Load chat history from session on mount ───────────────────────
+  useEffect(() => {
+    const { loadChatFromSession } = useCompilerStore.getState();
+    loadChatFromSession();
+  }, []);
+
+  // ── Auto-save chat to session when it changes ────────────────────
+  useEffect(() => {
+    const { saveChatToSession } = useCompilerStore.getState();
+    saveChatToSession();
+  }, [chatHistory]);
+
   // ── Load Pyodide on mount ──────────────────────────────────────
   useEffect(() => {
     setPyodideStatus("loading");
@@ -137,6 +170,17 @@ function CompilerContent() {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
       handleChatSubmit();
+    }
+    // Escape to clear input
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setChatInput("");
+      textareaRef.current?.blur();
+    }
+    // Ctrl/Cmd + K to focus chat
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      textareaRef.current?.focus();
     }
   };
 
@@ -183,10 +227,17 @@ function CompilerContent() {
         <ResizablePanel defaultSize={25} minSize={20} collapsible={true} className="flex flex-col bg-surface/20">
           <div className="h-full flex flex-col overflow-hidden">
             <div className="h-9 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background/40">
-              <span className="text-[10px] font-bold tracking-widest text-[#f97316]">AI TUTOR</span>
-              {(isGenerating || isExecutingAI) && (
-                <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-pulse" />
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold tracking-widest text-[#f97316]">AI TUTOR</span>
+                {(isGenerating || isExecutingAI) && (
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-pulse" />
+                )}
+              </div>
+              <div className="text-[8px] text-muted-foreground opacity-60 flex items-center gap-2">
+                <kbd className="px-1 py-0.5 bg-border rounded">Ctrl+K</kbd> focus • <kbd className="px-1 py-0.5 bg-border rounded">Ctrl+/</kbd> clear
+                <span className="text-[#f97316]">•</span>
+                <span className="text-[#f97360]">Groq: {keyManager.getTotalKeys()} keys</span>
+              </div>
             </div>
 
             {/* Examples row */}
@@ -346,17 +397,17 @@ function CompilerContent() {
 
             <div className="flex-1 min-h-0 relative">
               {pendingDiff && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-[#0a0a0a] border border-white/10 p-2 rounded-xl shadow-2xl backdrop-blur-xl border-l-[#f97316] border-l-2">
-                  <div className="px-3 py-1 flex items-center gap-3 border-r border-white/10">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 diff-widget">
+                  <div className="flex items-center gap-3 border-r border-white/10 pr-3">
                     <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-[0.2em]">DIFF PENDING</span>
                     {diffStats && (
-                      <div className="flex gap-2 text-[9px] font-mono">
-                        <span className="text-green-500">+{diffStats.added}</span>
-                        <span className="text-red-500">-{diffStats.removed}</span>
+                      <div className="diff-stats text-[9px] font-mono">
+                        <span className="added">+{diffStats.added}</span>
+                        <span className="removed">-{diffStats.removed}</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 pl-2">
+                  <div className="flex gap-2 pl-3">
                     <button
                       onClick={acceptDiff}
                       className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-white text-black hover:bg-zinc-200 rounded-lg transition-all"
