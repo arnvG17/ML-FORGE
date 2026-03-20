@@ -115,21 +115,33 @@ export function useCompilerOrchestrator(
 
         const lastOutput = (state.window1Output?.stdout ?? []).slice(-5).join('\n');
 
-        // Call LLM — get back explanation + fullCode + suggestions
-        const response = await getCompilerResponse(
-          state.userCode,
-          message,
-          variables,
-          lastOutput
-        );
+        // Call LLM server API — get back intent + explanation + fullCode + suggestions
+        const res = await fetch("/api/compiler/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userCode: state.userCode,
+            userMessage: message,
+            variables,
+            lastOutput,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to get response from AI");
+        }
+
+        const response = await res.json();
 
         // STREAM 1 → explanation goes to chat
-        state.addAIMessage(response.explanation, "");
-        // We handle suggestions if needed, the store needs updating to support them
-        // For now, suggestions are not in the message type but we can add them
+        state.addAIMessage(response.explanation || "", "");
 
-        // STREAM 2 → code diff goes to editor
-        const codeChanged = response.fullCode.trim() !== state.userCode.trim();
+        // STREAM 2 → code diff goes to editor ONLY if intent is modification
+        const isModification = response.intent === "modification";
+        const codeChanged =
+          isModification &&
+          response.fullCode &&
+          response.fullCode.trim() !== state.userCode.trim();
 
         if (codeChanged) {
           const diff = applyDiffToEditor(

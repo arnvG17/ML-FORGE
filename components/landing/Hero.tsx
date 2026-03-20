@@ -37,7 +37,7 @@ export default function Hero() {
       <motion.div style={!isMobile ? { scale, opacity } : {}} className="w-full origin-center">
         <HeroDitheringCard
           title="FORGE"
-          description="AI-driven scikit-learn playground. Describe your model, stream the code, interact with results instantly. No local environment required."
+          description="AI-driven scikit-learn playground and compiler. Describe your model to generate it, or write and run your own ML code directly in the browser without any setup."
           colorFront={heroColor}
           hideButton={true}
           className="pt-12 pb-12"
@@ -49,7 +49,7 @@ export default function Hero() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push(user ? "/playground" : "/login?redirect=/playground")}
+              onClick={() => router.push(user ? "/playground" : "/sign-in?redirect=/playground")}
               className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full bg-white px-10 text-base font-mono font-medium text-black transition-all duration-300 hover:bg-white/90 hover:ring-4 hover:ring-white/20 w-full md:w-auto"
             >
               <span className="relative z-10">

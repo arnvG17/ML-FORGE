@@ -79,9 +79,9 @@ const differentiators = [
       "Flask boilerplate, routing, base64 encoding — all hidden. The optional code drawer shows only the sklearn section. Beginners see results. Power users see the model logic.",
   },
   {
-    title: "Pro mode for power users",
+    title: "Built-in ML Compiler",
     description:
-      "Toggle Pro and the code drawer opens, becomes editable. Modify the sklearn logic directly, hit re-run, and your changes deploy instantly. The full model is yours to hack.",
+      "Want to write code yourself? Use our built-in Compiler to write and run your custom ML code directly in the browser without any setup. Test models instantly.",
   },
   {
     title: "Every algorithm. One interface.",

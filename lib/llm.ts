@@ -487,51 +487,25 @@ export async function* streamFlaskApp(intent: string) {
 const COMPILER_SYSTEM_PROMPT = `
 You are an AI coding tutor inside Forge, a Python compiler for beginners.
 
-═ 1. MODIFYING USER'S CODE ═
-If the user asks to "Suggest additions", "Fix errors", or change their main code:
-- Explain what you are changing in plain text.
-- Provide the COMPLETE revised main code wrapped in \`\`\`python ... \`\`\`.
-- We will display this as a diff editor for them to accept/reject.
+═ 1. DETERMINING THE INTENT ═
+You must determine if the user's question asks to modify their main code OR just wants an explanation/concept shown.
+Output your decision in the "intent" field ("modification" or "explanation").
 
-═ 2. VISUAL EXPLANATIONS (When NOT modifying main code) ═
-If the user asks "Explain this", or you want to show a concept, write a NEW Python program that runs live and produces visible output.
-- Your entire response must be valid, runnable Python code (raw text, no markdown).
-- All explanations go inside # comments. No prose outside them.
-- BE PROACTIVE WITH VISUALS: If the user has data or is asking about ML, ALWAYS generate a seaborn/matplotlib plot.
-- Maximum 35 lines. Focused beats comprehensive.
-- The code shares the user's namespace. Use their variable names. Check VARIABLES IN SCOPE.
+- "modification": User asks to "fix this", "add a slider", "use random forest", "change hyperparameter".
+- "explanation": User asks "how does this work?", "explain the logic", "what is random forest?".
 
-PLOT AESTHETICS:
-- fig, ax = plt.subplots(figsize=(8, 5), facecolor='#050505')
-- ax.set_facecolor('#050505')
-- ax.tick_params(colors='#444444', labelsize=8)
-- for s in ax.spines.values(): s.set_color('#222222')
-- Use sns.despine() for a cleaner look.
+═ 2. MODIFYING USER'S CODE ("modification" intent) ═
+- Explain what you are changing in plain text in the "explanation" field.
+- Provide the COMPLETE revised main code in the "fullCode" field.
+- The UI will display this as a diff editor for them to accept/reject.
 
-AUTO-EXPLAIN (First Run):
-Generate a quick visualization of their main data variable. If it's a dataframe, show .head() AND a distribution plot. Raw python only.
-`;
-
-/**
- * Stage 3: The new tutor interface
- * Explains code in Chat (Explanation) + Editor (Diff) + VM (Plots)
- */
-export async function getCompilerResponse(
-  userCode: string,
-  userMessage: string,
-  variables: string,   // e.g. "model: DecisionTreeClassifier\nX_train: ndarray (120,4)"
-  lastOutput: string   // last few lines of stdout
-): Promise<{ explanation: string; fullCode: string; suggestions: string[] }> {
-  const key = keyManager.getNextKey()
-  const groq = new Groq({ apiKey: key })
-
-  const systemPrompt = `
-You are an AI tutor inside a Python learning tool.
-Always respond with a JSON object. Nothing else. No markdown. No backticks.
-First character must be {
+═ 3. VISUAL EXPLANATIONS ("explanation" intent) ═
+- If the user asks "Explain this", explain it simply in the "explanation" field.
+- In the "fullCode" field, you MUST return their exact original code unchanged. Do NOT modify their code if the intent is "explanation".
 
 JSON shape:
 {
+  "intent": "modification", // or "explanation"
   "explanation": "...",
   "fullCode": "...",
   "suggestions": ["...", "..."]
@@ -541,44 +515,32 @@ EXPLANATION field rules:
 - Plain English only. No Python code inside this field.
 - Maximum 4 sentences.
 - Use simple analogies. Assume the reader is a beginner.
-- You may reference variable names like \`model\` or \`max_depth\`
-  using backtick notation — these render as inline code in the UI.
-- Never paste arrays, numbers, or raw output values.
-- End with one sentence pointing to what changed:
-  "Check the editor to see the change." or
-  "The output panel will show the new chart."
-
-Good explanation example:
-  "Right now your tree can only ask 3 questions before deciding
-   which flower species it is. I've increased \`max_depth\` to 5
-   so it can learn finer distinctions. I also added a chart that
-   shows which measurements it relies on most. Check the editor
-   to review the change."
-
-Bad explanation example (never do this):
-  "model = DecisionTreeClassifier(max_depth=5)\nThis changes the
-   hyperparameter max_depth from 3 to 5, which increases the
-   depth of the decision tree and allows it to..."
+- End with what changed: "Check the editor to see the change." OR if it's an explanation: "Let me know if you want to try writing this!"
 
 FULL CODE field rules:
 - Return the COMPLETE Python file from top to bottom.
-- Include the user's original code with your changes applied.
-- If no changes are needed, return the original code unchanged.
+- If intent="modification", include the user's original code with your changes applied.
+- If intent="explanation", return the EXACT SAME CODE the user provided. Do not change a single character.
 - The code must be valid Python with no syntax errors.
-- For matplotlib, always set these styles:
-    fig.patch.set_facecolor('#060606')
-    ax.set_facecolor('#060606')
-    ax.tick_params(colors='#555555')
-    for spine in ax.spines.values():
-        spine.set_color('#222222')
 
 SUGGESTIONS field rules:
-- Exactly 2 items.
-- Plain English questions a beginner would ask.
-- Short. Curious. Not technical.
-  Good: "What happens if I make the tree deeper?"
-  Bad:  "How does Gini impurity affect the split criterion?"
+- Exactly 2 items. Plain English questions a beginner would ask. Short. Curious. Not technical.
 `
+
+/**
+ * Stage 3: The new tutor interface
+ * Explains code in Chat (Explanation) + Editor (Diff) + VM (Plots)
+ */
+export async function getCompilerResponse(
+  userCode: string,
+  userMessage: string,
+  variables: string,   // e.g. "model: DecisionTreeClassifier\\nX_train: ndarray (120,4)"
+  lastOutput: string   // last few lines of stdout
+): Promise<{ intent: "modification" | "explanation"; explanation: string; fullCode: string; suggestions: string[] }> {
+  const key = keyManager.getNextKey()
+  const groq = new Groq({ apiKey: key })
+
+  const systemPrompt = `${COMPILER_SYSTEM_PROMPT}\nAlways respond with a JSON object. First character must be {.`
 
   const userPrompt = `
 USER'S CURRENT CODE:
@@ -607,6 +569,7 @@ ${userMessage}
     const raw = response.choices[0]?.message?.content ?? '{}'
     const parsed = JSON.parse(raw)
     return {
+      intent:      parsed.intent === "modification" ? "modification" : "explanation",
       explanation: parsed.explanation ?? '',
       fullCode:    parsed.fullCode    ?? userCode,
       suggestions: parsed.suggestions ?? []

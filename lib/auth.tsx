@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { getFirebaseAuth, getGoogleProvider } from "@/lib/firebase";
 import {
   onAuthStateChanged,
@@ -152,6 +153,7 @@ export function ForgeUserButton() {
 
 export function SignOutButton() {
   const { user } = useAuth();
+  const router = useRouter();
 
   if (user) {
     return (
@@ -166,7 +168,7 @@ export function SignOutButton() {
 
   return (
     <button
-      onClick={() => signInWithGoogle()}
+      onClick={() => router.push("/sign-in")}
       className="text-[10px] font-mono font-medium text-muted hover:text-foreground transition-colors uppercase tracking-widest px-2 py-1 border border-border hover:border-primary/50 rounded bg-surface"
     >
       Log in

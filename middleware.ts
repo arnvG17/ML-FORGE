@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const publicPaths = [
   "/",
-  "/login",
+  "/sign-in",
+  "/sign-up",
   "/p/",
   "/embed/",
   "/api/sessions/share/",
@@ -32,7 +33,7 @@ export default function middleware(request: NextRequest) {
   // Check for the Firebase session cookie
   const session = request.cookies.get("__session")?.value;
   if (!session) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/sign-in", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
