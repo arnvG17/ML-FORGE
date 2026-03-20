@@ -126,7 +126,12 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing");
   const isReadOnly = useSessionStore((s) => s.isReadOnly);
   
-  const { submitIntent, reigniteSession, shareSession, sessionIdRef } = useOrchestrator();
+  const { 
+    submitIntent, 
+    reigniteSession, 
+    shareSession, 
+    sessionIdRef
+  } = useOrchestrator();
 
   useEffect(() => {
     setHeroColor(HERO_COLORS[Math.floor(Math.random() * HERO_COLORS.length)]);
@@ -136,17 +141,24 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Reignite existing session on mount or reset for new session
+  // Reset state for new sessions - use setTimeout to break update cycle
+  useEffect(() => {
+    if (sessionId === "new") {
+      // Use setTimeout to break the synchronous update cycle
+      setTimeout(() => {
+        useAgentStore.getState().reset();
+        useOutputStore.getState().reset();
+        useSessionStore.getState().resetSession();
+        setStarted(false);
+      }, 0);
+    }
+  }, [sessionId]);
+
+  // Reignite existing session on mount
   useEffect(() => {
     if (sessionId && sessionId !== "new") {
       setStarted(true);
       reigniteSession(sessionId);
-    } else if (sessionId === "new") {
-      // Reset all stores for a fresh new session
-      useAgentStore.getState().reset();
-      useOutputStore.getState().reset();
-      useSessionStore.getState().resetSession();
-      setStarted(false);
     }
   }, [sessionId, reigniteSession]);
 

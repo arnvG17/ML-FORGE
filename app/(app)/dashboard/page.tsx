@@ -100,6 +100,8 @@ function SessionCard({ session }: { session: any }) {
 
   const isCompiler = session.sessionMode === "compiler";
   const accentColor = isCompiler ? "#f97316" : "#3b82f6";
+  const isPublic = session.visibility === "public";
+  const visibilityColor = isPublic ? "#3b82f6" : "#f97316";
 
   return (
     <motion.div
@@ -132,7 +134,6 @@ function SessionCard({ session }: { session: any }) {
             </div>
           ) : (
             <div className="font-mono text-xl font-medium text-foreground truncate">
-              <span style={{ color: accentColor, marginRight: 8 }}>{isCompiler ? "●" : "○"}</span>
               {session.name || "Untitled"}
             </div>
           )}
@@ -140,9 +141,9 @@ function SessionCard({ session }: { session: any }) {
         <div className="flex items-center gap-2">
           <span
             className="text-[10px] font-mono px-1.5 py-0.5 border"
-            style={{ borderColor: `${accentColor}33`, color: accentColor }}
+            style={{ borderColor: `${visibilityColor}33`, color: visibilityColor }}
           >
-            {isCompiler ? "COMPILER" : (session.visibility || "private")}
+            {isCompiler ? "COMPILER" : (isPublic ? "PUBLIC" : "PRIVATE")}
           </span>
           <div className="relative" ref={menuRef}>
             <button
@@ -210,8 +211,11 @@ function SessionCard({ session }: { session: any }) {
       </div>
       <Link
         href={isCompiler ? `/compiler?id=${session.sessionId}` : `/playground/${session.sessionId}`}
-        className="text-[10px] font-mono uppercase tracking-widest hover:underline transition-colors inline-flex items-center gap-2 group/link"
-        style={{ color: accentColor }}
+        className={`text-[10px] font-mono uppercase tracking-widest hover:underline transition-colors inline-flex items-center gap-2 group/link px-3 py-1.5 border rounded ${
+          isCompiler 
+            ? "text-orange-400 border-orange-400/30 hover:border-orange-400/50 hover:bg-orange-400/5" 
+            : "text-blue-400 border-blue-400/30 hover:border-blue-400/50 hover:bg-blue-400/5"
+        }`}
       >
         {isCompiler ? "Open in Compiler" : "Reignite"} <span className="group-hover/link:translate-x-1 transition-transform duration-300">→</span>
       </Link>

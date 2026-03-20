@@ -72,36 +72,34 @@ export default function SmartVMOutput({ output, pyodideStatus, runTime }: SmartV
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className="p-4 rounded-lg bg-black border border-white/10 font-mono"
+        className="p-5 rounded-xl bg-black/60 border border-white/10 font-mono backdrop-blur-sm"
         style={{ fontFamily: "'JetBrains Mono', monospace" }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 rounded-full bg-white"></div>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-white">SMART DETECTION</span>
-        </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {output.smartOutputs?.map((item: any, index: number) => (
             <motion.div
               key={`smart-output-${index}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.2, delay: index * 0.05 }}
-              className="p-3 rounded-lg bg-white/5 border border-white/10"
+              className="p-4 rounded-xl bg-gradient-to-r from-white/5 to-white/[0.02] border border-white/10 hover:border-white/20 transition-all duration-200 group"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 text-white">
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/15 transition-colors">
                   {getIcon(item.category)}
                 </div>
-                <div className="flex-1">
-                  <div className="text-[10px] text-white font-mono font-semibold">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-white font-mono font-semibold mb-1">
                     {item.name}
                   </div>
-                  <div className="text-[9px] text-gray-400 mt-1">
+                  <div className="text-[9px] text-gray-400 leading-relaxed">
                     {item.description}
                   </div>
                 </div>
-                <div className="text-[8px] text-gray-500 uppercase tracking-tighter px-2 py-1 bg-white/5 border border-white/10 rounded">
-                  {item.category}
+                <div className="flex-shrink-0">
+                  <div className="text-[8px] text-gray-500 uppercase tracking-tighter px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg font-mono">
+                    {item.category}
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -274,10 +272,11 @@ export default function SmartVMOutput({ output, pyodideStatus, runTime }: SmartV
     if (!hasStdout) return null;
 
     return (
-      <div className="font-mono text-xs text-green-400 leading-relaxed" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+      <div className="font-mono text-xs text-green-400 leading-relaxed bg-black/50 p-3 rounded-lg border border-green-500/20">
         {output.stdout.map((line, i) => (
-          <div key={i} className="before:content-['$_'] before:mr-2">
-            {line}
+          <div key={i} className="flex items-start gap-2">
+            <span className="text-green-500/60 font-mono select-none">$</span>
+            <span className="flex-1 text-green-300">{line}</span>
           </div>
         ))}
       </div>
@@ -406,17 +405,18 @@ export default function SmartVMOutput({ output, pyodideStatus, runTime }: SmartV
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
-        className="p-4 rounded-lg bg-black border border-white/10 font-mono"
+        className="p-5 rounded-xl bg-black/60 border border-white/10 font-mono backdrop-blur-sm"
         style={{ fontFamily: "'JetBrains Mono', monospace" }}
       >
         <div className="flex items-center gap-2 mb-4">
           <div className="w-2 h-2 rounded-full bg-green-400"></div>
           <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">CONSOLE OUTPUT</span>
         </div>
-        <div className="font-mono text-xs text-green-400 leading-relaxed" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+        <div className="font-mono text-xs text-green-400 leading-relaxed bg-black/50 p-3 rounded-lg border border-green-500/20">
           {output.stdout.map((line, i) => (
-            <div key={`console-line-${i}`} className="before:content-['$_'] before:mr-2">
-              {line}
+            <div key={`console-line-${i}`} className="flex items-start gap-2">
+              <span className="text-green-500/60 font-mono select-none">$</span>
+              <span className="flex-1 text-green-300">{line}</span>
             </div>
           ))}
         </div>
@@ -436,7 +436,7 @@ export default function SmartVMOutput({ output, pyodideStatus, runTime }: SmartV
   if (hasErrors) activeSections.push(<div key="errors-section">{renderErrors()}</div>);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+    <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide font-mono" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
       {activeSections.length > 0 ? activeSections : (
         <div className="h-full flex flex-col items-center justify-center space-y-6 opacity-30 select-none">
           <div className="w-16 h-16 border-2 border-white/10 rounded-xl flex items-center justify-center bg-black">

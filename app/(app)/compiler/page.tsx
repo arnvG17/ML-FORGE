@@ -395,28 +395,29 @@ function CompilerContent() {
 
             <div className="flex-1 min-h-0 relative">
               {pendingDiff && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 diff-widget">
-                  <div className="flex items-center gap-3 border-r border-white/10 pr-3">
-                    <span className="text-[10px] font-bold text-[#f97316] uppercase tracking-[0.2em]">DIFF PENDING</span>
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black border border-white/20 shadow-xl">
+                  <div className="flex items-center gap-3 border-r border-white/20 pr-3 pl-3 py-2">
+                    <span className="text-[10px] font-mono font-bold text-white uppercase tracking-[0.2em]">DIFF PENDING</span>
                     {diffStats && (
-                      <div className="diff-stats text-[9px] font-mono">
-                        <span className="added">+{diffStats.added}</span>
-                        <span className="removed">-{diffStats.removed}</span>
+                      <div className="text-[9px] font-mono">
+                        <span className="text-[#ff4444]">+{diffStats.added}</span>
+                        <span className="text-[#ff6666] mx-1">-</span>
+                        <span className="text-[#ff4444]">-{diffStats.removed}</span>
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2 pl-3">
+                  <div className="flex gap-0 border-l border-white/20">
                     <button
                       onClick={acceptDiff}
-                      className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-white text-black hover:bg-zinc-200 rounded-lg transition-all"
+                      className="px-4 py-2 text-[10px] font-mono font-bold uppercase tracking-wider bg-white text-black hover:bg-zinc-200 transition-all border-r border-white/20"
                     >
-                      Accept
+                      ACCEPT
                     </button>
                     <button
                       onClick={rejectDiff}
-                      className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-all"
+                      className="px-4 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-white hover:bg-white/10 transition-all"
                     >
-                      Reject
+                      REJECT
                     </button>
                   </div>
                 </div>

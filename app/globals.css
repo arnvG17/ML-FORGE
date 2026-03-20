@@ -103,20 +103,20 @@ pre,
   font-family: var(--font-mono), "JetBrains Mono", monospace;
 }
 
-/* Diff line backgrounds — applied via Monaco decorations */
+/* Diff line backgrounds — Cursor-style highlighting */
 .diff-line-removed {
-  background-color: rgba(255, 0, 0, 0.08) !important;
-  border-left: 3px solid #ff6b6b !important;
+  background-color: rgba(255, 68, 68, 0.15) !important;
+  border-left: 2px solid #ff4444 !important;
 }
 .diff-line-added {
-  background-color: rgba(0, 255, 0, 0.08) !important;
-  border-left: 3px solid #51cf66 !important;
+  background-color: rgba(76, 175, 80, 0.15) !important;
+  border-left: 2px solid #4caf50 !important;
 }
 
 /* Gutter markers (the +/− symbols in the line number column) */
 .diff-gutter-removed::before {
   content: '−';
-  color: #ff6b6b;
+  color: #ff4444;
   font-size: 12px;
   font-weight: bold;
   position: absolute;
@@ -125,7 +125,7 @@ pre,
 }
 .diff-gutter-added::before {
   content: '+';
-  color: #51cf66;
+  color: #4caf50;
   font-size: 12px;
   font-weight: bold;
   position: absolute;
@@ -139,29 +139,4 @@ pre,
   background-color: transparent !important;
   width: 20px !important;
   text-align: center !important;
-}
-
-/* Diff widget styling */
-.diff-widget {
-  background: #1e1e1e;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: #ccc;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.diff-stats {
-  color: #888;
-  margin-left: 8px;
-}
-
-.diff-stats .added {
-  color: #51cf66;
-}
-
-.diff-stats .removed {
-  color: #ff6b6b;
 }
