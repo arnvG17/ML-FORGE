@@ -4,6 +4,7 @@ import "./globals.css";
 import Script from "next/script";
 import { FirebaseAuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthToast } from "@/components/layout/AuthToast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
         <FirebaseAuthProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
+            <AuthToast />
           </ThemeProvider>
         </FirebaseAuthProvider>
       </body>

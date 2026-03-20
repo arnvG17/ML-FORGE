@@ -49,11 +49,11 @@ export default function Hero() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => router.push(user ? "/compiler" : "/login")}
+              onClick={() => router.push(user ? "/playground" : "/login?redirect=/playground")}
               className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full bg-white px-10 text-base font-mono font-medium text-black transition-all duration-300 hover:bg-white/90 hover:ring-4 hover:ring-white/20 w-full md:w-auto"
             >
               <span className="relative z-10">
-                {user ? "Back to Compiler →" : "Start Building →"}
+                {user ? "Go to Playground →" : "Start Building →"}
               </span>
             </motion.button>
             <motion.button
@@ -62,7 +62,7 @@ export default function Hero() {
               onClick={() => router.push("/compiler")}
               className="group relative inline-flex h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/20 bg-white/5 backdrop-blur-md px-10 text-base font-mono font-medium text-white transition-all duration-300 hover:bg-white/10 hover:border-white/40 w-full md:w-auto"
             >
-              <span className="relative z-10">Try the Compiler →</span>
+              <span className="relative z-10">Start Compiler →</span>
             </motion.button>
           </div>
         </HeroDitheringCard>
