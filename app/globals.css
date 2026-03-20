@@ -103,24 +103,6 @@ pre,
   font-family: var(--font-mono), "JetBrains Mono", monospace;
 }
 
-/* Hide Clerk Development Mode Badge and Banner */
-.cl-internal-ph676z, 
-.cl-internal-1dauvuv,
-[data-clerk-development-mode-badge],
-.cl-internal-badge {
-  display: none !important;
-}
-
-/* Make sign-in form feel heavier/more premium */
-.cl-rootBox {
-  font-family: var(--font-inter), system-ui, sans-serif !important;
-}
-
-.cl-headerTitle {
-  font-weight: 800 !important;
-  letter-spacing: -0.04em !important;
-}
-
 /* Diff line backgrounds — applied via Monaco decorations */
 .diff-line-removed {
   background-color: rgba(80, 20, 20, 0.4) !important;

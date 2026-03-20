@@ -1,29 +1,47 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher([
+const publicPaths = [
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/p/(.*)",
-  "/embed/(.*)",
-  "/api/sessions/share/(.*)",
-  "/api/gallery(.*)",
-  "/api/test-llm(.*)",
-  "/api/test-pyodide-prompt(.*)",
-]);
+  "/login",
+  "/p/",
+  "/embed/",
+  "/api/sessions/share/",
+  "/api/gallery",
+  "/api/test-llm",
+  "/api/test-pyodide-prompt",
+];
 
-export default clerkMiddleware(async (auth, request) => {
-  console.log(`[Middleware] Testing Path: ${request.nextUrl.pathname}`);
-  if (!isPublicRoute(request)) {
-    try {
-      await auth.protect();
-    } catch (error) {
-      console.error("[Middleware] Auth protection failed:", error);
-      throw error;
-    }
+function isPublicRoute(pathname: string): boolean {
+  return publicPaths.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+export default function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Skip Next.js internals and static files
+  if (pathname.startsWith("/_next") || pathname.includes(".")) {
+    return NextResponse.next();
   }
-});
+
+  console.log(`[Middleware] Path: ${pathname}`);
+
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Check for the Firebase session cookie
+  const session = request.cookies.get("__session")?.value;
+  if (!session) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Cookie exists — let the request through.
+  // Server-side token verification happens in auth-server.ts per API route.
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ["/((?!_next|.*\\..*).*)"],
+  matcher: ["/((?!_next|.*\\..*).*)" ],
 };

@@ -1,20 +1,38 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
+import { getAdminAuth } from "@/lib/firebase-admin";
 
 /**
- * Server-only utility to get the current user ID.
+ * Server-only utility to get the current user ID from the Firebase session cookie.
  * This should ONLY be imported in API routes or Server Components.
  */
 export async function getCurrentUserId(): Promise<string | null> {
-  const { userId } = await auth();
-  return userId ?? null;
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("__session")?.value;
+    if (!sessionCookie) return null;
+
+    const decoded = await getAdminAuth().verifyIdToken(sessionCookie);
+    return decoded.uid;
+  } catch (error) {
+    console.error("[auth-server] Token verification failed:", error);
+    return null;
+  }
 }
 
 export async function getCurrentUser() {
-  const user = await currentUser();
-  if (!user) return null;
-  return {
-    id: user.id,
-    name: user.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : user.username || "Anonymous",
-    image: user.imageUrl,
-  };
+  try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get("__session")?.value;
+    if (!sessionCookie) return null;
+
+    const decoded = await getAdminAuth().verifyIdToken(sessionCookie);
+    return {
+      id: decoded.uid,
+      name: decoded.name || decoded.email?.split("@")[0] || "Anonymous",
+      image: decoded.picture || null,
+    };
+  } catch (error) {
+    console.error("[auth-server] Token verification failed:", error);
+    return null;
+  }
 }
