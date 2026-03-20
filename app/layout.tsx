@@ -27,6 +27,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side environment check
+  if (typeof window === "undefined") {
+    console.log("[Server-Init] GROQ_API_KEY present:", !!process.env.GROQ_API_KEY);
+    console.log("[Server-Init] GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
+  }
+
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>

@@ -260,8 +260,21 @@ function CompilerContent() {
                   </div>
                 ))
               )}
-              {isGenerating && <div className="text-[9px] text-[#f97316] animate-pulse">GENERATING...</div>}
-              {isExecutingAI && <div className="text-[9px] text-[#f97316] animate-pulse">RUNNING AI CODE...</div>}
+              {isGenerating && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-[#f97316]/10 border border-[#f97316]/20 rounded-lg w-fit">
+                  <div className="flex gap-1">
+                    <span className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1 h-1 bg-[#f97316] rounded-full animate-bounce"></span>
+                  </div>
+                  <span className="text-[10px] text-[#f97316] font-bold uppercase tracking-widest">AI is thinking...</span>
+                </div>
+              )}
+              {isExecutingAI && (
+                <div className="text-[9px] text-[#f97316] animate-pulse uppercase tracking-widest px-3">
+                  Running generated code...
+                </div>
+              )}
             </div>
 
             {/* Input area */}

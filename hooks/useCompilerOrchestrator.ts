@@ -161,6 +161,10 @@ export function useCompilerOrchestrator(
 
       } catch (err: any) {
         console.error("[CompilerOrchestrator] submitChat error:", err.message);
+        state.addAIMessage(
+          "I encountered an error while processing your request. Please check your connection and try again.",
+          ""
+        );
         state.setIsGenerating(false);
       } finally {
         isSubmittingRef.current = false;

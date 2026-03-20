@@ -538,6 +538,7 @@ export async function getCompilerResponse(
   lastOutput: string   // last few lines of stdout
 ): Promise<{ intent: "modification" | "explanation"; explanation: string; fullCode: string; suggestions: string[] }> {
   const key = keyManager.getNextKey()
+  console.log("[getCompilerResponse] Using key starting with:", key?.slice(0, 10));
   const groq = new Groq({ apiKey: key })
 
   const systemPrompt = `${COMPILER_SYSTEM_PROMPT}\nAlways respond with a JSON object. First character must be {.`
@@ -557,6 +558,7 @@ ${userMessage}
 `
 
   try {
+    console.log("[getCompilerResponse] Sending request to Groq...");
     const response = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       temperature: 0.2,
@@ -567,14 +569,18 @@ ${userMessage}
       ]
     })
     const raw = response.choices[0]?.message?.content ?? '{}'
+    console.log("[getCompilerResponse] Raw response from Groq:", raw);
     const parsed = JSON.parse(raw)
-    return {
+    const result: { intent: "modification" | "explanation"; explanation: string; fullCode: string; suggestions: string[] } = {
       intent:      parsed.intent === "modification" ? "modification" : "explanation",
       explanation: parsed.explanation ?? '',
       fullCode:    parsed.fullCode    ?? userCode,
       suggestions: parsed.suggestions ?? []
     }
+    console.log("[getCompilerResponse] Returning parsed result:", JSON.stringify(result, null, 2));
+    return result;
   } catch (err: any) {
+    console.error("[getCompilerResponse] Error occurred:", err.message, err.status);
     if (err?.status === 429) {
       const retryAfter = parseInt(err?.headers?.['retry-after'] ?? '60', 10)
       keyManager.markRateLimited(key, retryAfter)
