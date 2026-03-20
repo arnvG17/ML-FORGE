@@ -132,7 +132,10 @@ export function applyDiffToEditor(
   }
 
   const decorationIds = editor.deltaDecorations([], decorations)
-
+  
+  console.log('[applyDiffToEditor] Applied decorations:', decorations.length);
+  console.log('[applyDiffToEditor] Decoration IDs:', decorationIds.length);
+  
   return {
     originalCode,
     proposedCode,

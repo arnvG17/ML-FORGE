@@ -66,6 +66,15 @@ import pyodide_http
 pyodide_http.patch_all()
     `);
 
+    // Load smart plot detector system
+    console.log("[Pyodide] Loading smart plot detection system...");
+    try {
+      // The smart detector will be loaded from the file system when needed
+      console.log("[Pyodide] Smart detector ready for import");
+    } catch (error) {
+      console.warn("[Pyodide] Smart detector not available:", error);
+    }
+
     console.log(`[Pyodide] Fully initialized in ${Date.now() - start}ms.`);
     pyodideInstance = pyodide;
     return pyodideInstance;

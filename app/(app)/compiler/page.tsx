@@ -13,6 +13,7 @@ import useSWR from "swr";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Sparkles, Terminal, Play, Save, ChevronLeft, Layout, Cpu } from "lucide-react";
 import PlotViewer from "@/components/playground/PlotViewer";
+import SmartVMOutput from "@/components/compiler/SmartVMOutput";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { TextEffect } from "@/components/ui/text-effect";
@@ -233,11 +234,6 @@ function CompilerContent() {
                   <div className="w-1.5 h-1.5 rounded-full bg-[#f97316] animate-pulse" />
                 )}
               </div>
-              <div className="text-[8px] text-muted-foreground opacity-60 flex items-center gap-2">
-                <kbd className="px-1 py-0.5 bg-border rounded">Ctrl+K</kbd> focus • <kbd className="px-1 py-0.5 bg-border rounded">Ctrl+/</kbd> clear
-                <span className="text-[#f97316]">•</span>
-                <span className="text-[#f97360]">Groq: {keyManager.getTotalKeys()} keys</span>
-              </div>
             </div>
 
             {/* Examples row */}
@@ -249,6 +245,8 @@ function CompilerContent() {
                     ["ml", "ML model"],
                     ["sorting", "Sorting"],
                     ["pandas", "Pandas"],
+                    ["plotting", "Plotting"],
+                    ["seaborn", "Seaborn"],
                     ["recursion", "Recursion"],
                   ] as const
                 ).map(([key, label]) => (
@@ -488,51 +486,11 @@ function CompilerContent() {
               </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-hide">
-              {/* Insight */}
-              {window1Output && !window1Output.error && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="p-5 rounded-2xl bg-white/[0.02] border border-white/5"
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="w-4 h-4 text-[#f97316]" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#f97316]">Execution Insight</span>
-                  </div>
-                  <div className="space-y-2">
-                    {window1Output.stdout.map((line, i) => (
-                      <div key={i} className="text-xs text-zinc-500 leading-relaxed font-mono pl-4 border-l border-white/10">
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Error */}
-              {window1Output?.error && (
-                <div className="p-5 rounded-2xl bg-red-500/5 border border-red-500/20">
-                  <div className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">Runtime Error</div>
-                  <pre className="text-[11px] text-red-300/70 whitespace-pre-wrap font-mono leading-relaxed bg-red-500/10 p-4 rounded-lg border border-red-500/10">
-                    {window1Output.error}
-                  </pre>
-                </div>
-              )}
-
-              {/* Plots */}
-              {window1Output?.plots.map((b64, i) => (
-                <PlotViewer key={i} name={`Visualization ${i + 1}`} base64={b64} />
-              ))}
-
-              {/* Empty state */}
-              {(!window1Output || (window1Output.stdout.length === 0 && window1Output.plots.length === 0 && !window1Output.error)) && pyodideStatus !== "loading" && (
-                <div className="h-full flex flex-col items-center justify-center space-y-6 opacity-20 select-none grayscale pt-10">
-                  <Terminal size={48} strokeWidth={1} />
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-center">Waiting for output</p>
-                </div>
-              )}
-            </div>
+            <SmartVMOutput 
+              output={window1Output} 
+              pyodideStatus={pyodideStatus} 
+              runTime={runTime} 
+            />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

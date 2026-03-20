@@ -73,6 +73,73 @@ print(f"Average age: {df['age'].mean():.1f}")`,
       "This creates a table of employee data and runs basic statistics. Run it to see the summary.",
   },
 
+  plotting: {
+    code: `import matplotlib.pyplot as plt
+import numpy as np
+import base64
+from io import BytesIO
+
+# Create sample data
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+# Create a plot function
+def make_plot():
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(x, y, 'b-', linewidth=2, label='sin(x)')
+    ax.set_xlabel('X values')
+    ax.set_ylabel('Y values')
+    ax.set_title('Simple Sine Wave')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    # Convert to base64 for forge_result
+    buf = BytesIO()
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+    buf.seek(0)
+    plot_b64 = base64.b64encode(buf.read()).decode('utf-8')
+    plt.close(fig)
+    return plot_b64
+
+# Create forge_result with plot
+forge_result = {
+    "metrics": {"accuracy": 0.95},
+    "plots": {"main_plot": make_plot()},
+    "controls": [],
+    "explanation": "This demonstrates manual plot creation in forge_result",
+    "errors": []
+}
+
+print("Plot created and added to forge_result!")`,
+    preMessage:
+      "This creates a plot manually and adds it to forge_result. The plot should now render properly in the VM output.",
+  },
+
+  seaborn: {
+    code: `import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# Set style
+sns.set_style("whitegrid")
+
+# Create sample data
+np.random.seed(42)
+data = np.random.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], 100)
+
+# Create a seaborn plot
+plt.figure(figsize=(10, 8))
+sns.scatterplot(x=data[:, 0], y=data[:, 1], alpha=0.7, s=50)
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.title('Seaborn Scatter Plot')
+plt.tight_layout()
+
+print("Seaborn plot created! Check the VM output panel.")`,
+    preMessage:
+      "This creates a seaborn plot. Run it to see the styled visualization rendered automatically.",
+  },
+
   recursion: {
     code: `def factorial(n):
     if n == 0:
