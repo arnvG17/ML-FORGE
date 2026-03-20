@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef, useCallback, useEffect, useState } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { UserButton, SignOutButton } from "@/lib/auth";
 import { MorphingSquare } from "@/components/ui/morphing-square";
 import { TextEffect } from "@/components/ui/text-effect";
 import { useAgentStore } from "@/store/agent";
 import { useSessionStore } from "@/store/session";
+import { useGraphingStore } from "@/store/graphing";
 import { cn } from "@/lib/utils";
+import GraphRenderer from "@/components/ui/graph-renderer";
+import { GraphingToggle } from "@/components/ui/graphing-toggle";
 
 interface Message {
   role: "user" | "assistant";
@@ -31,6 +34,8 @@ export default function ChatPanel({
 }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isGraphingEnabled = useGraphingStore((s) => s.isGraphingEnabled);
+  const toggleGraphing = useGraphingStore((s) => s.toggleGraphing);
   
   const messages = useAgentStore((s) => s.messages);
   const isStreaming = useAgentStore((s) => s.isStreaming || s.status === "thinking" || s.status === "writing" || s.status === "fixing");
@@ -116,6 +121,25 @@ export default function ChatPanel({
                   {msg.content}
                 </TextEffect>
               </div>
+              
+              {/* Render graph if graphing is enabled and message contains forge_graph tag */}
+              {isGraphingEnabled && msg.role === "assistant" && (
+                <div className="mt-3">
+                  <GraphRenderer content={msg.content} />
+                </div>
+              )}
+              
+              {/* Show graphing prompt when forge_graph tag is detected but toggle is off */}
+              {!isGraphingEnabled && msg.role === "assistant" && msg.content.includes('<forge_graph>') && (
+                <div className="mt-3 bg-black/50 border border-white/10 rounded-lg p-3 text-center">
+                  <p className="text-white/60 text-xs font-mono mb-2">
+                    📊 Scientific graph detected in response
+                  </p>
+                  <p className="text-white/40 text-xs font-mono">
+                    Enable GRAPH mode to visualize interactive charts
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
@@ -136,6 +160,14 @@ export default function ChatPanel({
 
       {!isReadOnly && (
         <div className="border-t border-border p-4 shrink-0 bg-surface z-20">
+          {/* Graphing Toggle - Prominent Position */}
+          <div className="mb-3 flex justify-center">
+            <GraphingToggle 
+              isEnabled={isGraphingEnabled}
+              onToggle={toggleGraphing}
+            />
+          </div>
+          
           <div className="relative border border-border rounded-xl bg-background/80 backdrop-blur-xl focus-within:border-primary/20 transition-all duration-300 shadow-lg flex flex-col min-h-[100px]">
             <textarea
               ref={textareaRef}

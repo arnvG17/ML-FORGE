@@ -18,7 +18,7 @@ class SmartPlotDetector:
         self.execution_plan = []
         
     def analyze_code(self, code):
-        """Analyze code to detect plotting patterns and create execution plan"""
+        """Analyze code to detect plotting patterns - more comprehensive detection"""
         lines = code.split('\n')
         
         # Pattern 1: Manual forge_result creation
@@ -26,7 +26,7 @@ class SmartPlotDetector:
             self.detected_patterns.append('manual_forge_result')
             
         # Pattern 2: Direct matplotlib calls
-        if any(call in code for call in ['plt.figure(', 'plt.plot(', 'plt.scatter(', 'plt.hist(']):
+        if any(call in code for call in ['plt.figure(', 'plt.plot(', 'plt.scatter(', 'plt.hist(', 'plt.subplot(', 'plt.subplots(']):
             self.detected_patterns.append('direct_matplotlib')
             
         # Pattern 3: Seaborn usage
@@ -45,6 +45,14 @@ class SmartPlotDetector:
         
         if has_plot_creation and has_no_show:
             self.detected_patterns.append('undisplayed_plots')
+            
+        # Pattern 6: Explicit show call
+        if 'plt.show()' in code:
+            self.detected_patterns.append('explicit_show')
+            
+        # Pattern 7: More aggressive matplotlib usage detection
+        if 'plt.' in code and 'import matplotlib' in code:
+            self.detected_patterns.append('matplotlib_usage')
             
         return self.detected_patterns
     
@@ -85,7 +93,7 @@ class SmartPlotDetector:
         return plan
 
 def smart_execute_code(code, global_vars):
-    """Intelligently execute code with plot detection and auto-capture"""
+    """Intelligently execute code with plot detection and auto-capture - ALWAYS ensure dynamic plots"""
     detector = SmartPlotDetector()
     patterns = detector.analyze_code(code)
     plan = detector.create_execution_plan(code, global_vars)
@@ -107,27 +115,101 @@ def smart_execute_code(code, global_vars):
         print(f"[SMART EXECUTOR] Execution error: {e}")
         raise
     
+    # ALWAYS try to call make_plot if it exists - this ensures dynamic plots
+    plot_result = find_and_call_make_plot(global_vars)
+    if plot_result:
+        print("[SMART EXECUTOR] Successfully called make_plot for dynamic plot")
+        
+        # If forge_result exists, update it; if not, create it
+        if 'forge_result' in global_vars:
+            forge_result = global_vars['forge_result']
+            if isinstance(forge_result, dict):
+                if 'plots' not in forge_result:
+                    forge_result['plots'] = {}
+                forge_result['plots']['dynamic_plot'] = plot_result
+                print("[SMART EXECUTOR] Updated existing forge_result with dynamic plot")
+            else:
+                # Replace non-dict forge_result
+                global_vars['forge_result'] = {
+                    'plots': {'dynamic_plot': plot_result},
+                    'metrics': {},
+                    'controls': [],
+                    'explanation': 'Dynamic plot automatically generated',
+                    'errors': []
+                }
+        else:
+            # Create new forge_result with the dynamic plot
+            global_vars['forge_result'] = {
+                'plots': {'dynamic_plot': plot_result},
+                'metrics': {},
+                'controls': [],
+                'explanation': 'Dynamic plot automatically generated',
+                'errors': []
+            }
+            print("[SMART EXECUTOR] Created new forge_result with dynamic plot")
+    else:
+        print("[SMART EXECUTOR] No make_plot function found or failed to call")
+        
+        # Fallback: try to capture matplotlib figures directly
+        if 'forge_result' in global_vars:
+            forge_result = global_vars['forge_result']
+            if isinstance(forge_result, dict) and 'plots' in forge_result:
+                plots_dict = forge_result['plots']
+                if isinstance(plots_dict, dict) and len(plots_dict) == 0:
+                    print("[SMART EXECUTOR] Empty plots dict - attempting matplotlib capture")
+                    try:
+                        # Get all current figures
+                        figures = [plt.figure(i) for i in plt.get_fignums()]
+                        if figures:
+                            plots = {}
+                            for i, fig in enumerate(figures):
+                                buf = BytesIO()
+                                fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+                                buf.seek(0)
+                                plot_b64 = base64.b64encode(buf.read()).decode('utf-8')
+                                plots[f'auto_capture_{i+1}'] = plot_b64
+                                plt.close(fig)
+                                print(f"[SMART EXECUTOR] Auto-captured figure {i+1}")
+                            
+                            forge_result['plots'] = plots
+                            print(f"[SMART EXECUTOR] Added {len(plots)} auto-captured plots")
+                        else:
+                            print("[SMART EXECUTOR] No matplotlib figures found to capture")
+                    except Exception as e:
+                        print(f"[SMART EXECUTOR] Auto-capture failed: {e}")
+        
+        # If still no forge_result, create one with any available plots
+        elif 'direct_matplotlib' in patterns or 'matplotlib_usage' in patterns:
+            print("[SMART EXECUTOR] Creating forge_result from matplotlib patterns")
+            try:
+                figures = [plt.figure(i) for i in plt.get_fignums()]
+                if figures:
+                    plots = {}
+                    for i, fig in enumerate(figures):
+                        buf = BytesIO()
+                        fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
+                        buf.seek(0)
+                        plot_b64 = base64.b64encode(buf.read()).decode('utf-8')
+                        plots[f'matplotlib_plot_{i+1}'] = plot_b64
+                        plt.close(fig)
+                    
+                    global_vars['forge_result'] = {
+                        'plots': plots,
+                        'metrics': {},
+                        'controls': [],
+                        'explanation': 'Auto-captured matplotlib plots',
+                        'errors': []
+                    }
+                    print(f"[SMART EXECUTOR] Created forge_result with {len(plots)} matplotlib plots")
+            except Exception as e:
+                print(f"[SMART EXECUTOR] Matplotlib capture failed: {e}")
+    
     # Post-processing - ALWAYS run post-processing to handle existing forge_result
     if 'extract_forge_result_plots' in plan['post_process']:
         extract_forge_result_plots(global_vars)
         
     if 'auto_create_forge_result' in plan['post_process']:
         auto_create_forge_result(global_vars)
-    
-    # NEW: Check if forge_result exists but has empty plots
-    if 'forge_result' in global_vars:
-        forge_result = global_vars['forge_result']
-        if isinstance(forge_result, dict) and 'plots' in forge_result:
-            plots_dict = forge_result['plots']
-            if isinstance(plots_dict, dict) and len(plots_dict) == 0:
-                print("[SMART EXECUTOR] forge_result exists but plots dict is empty - trying to fix")
-                # Try to find and call make_plot
-                plot_result = find_and_call_make_plot(global_vars)
-                if plot_result:
-                    forge_result['plots']['auto_fixed_plot'] = plot_result
-                    print("[SMART EXECUTOR] Successfully fixed empty plots dict")
-                else:
-                    print("[SMART EXECUTOR] Could not fix empty plots dict - no make_plot found")
 
 def extract_forge_result_plots(global_vars):
     """Extract plots from existing forge_result"""

@@ -18,6 +18,8 @@ import { TextEffect } from "@/components/ui/text-effect";
 
 import ChatPanel from "./ChatPanel";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { GraphingToggle } from "@/components/ui/graphing-toggle";
+import { useGraphingStore } from "@/store/graphing";
 
 interface PlaygroundLayoutProps {
   sessionId: string;
@@ -118,6 +120,9 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
   const [showShare, setShowShare] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [currentVisibility, setCurrentVisibility] = useState<"private" | "link" | "public">("private");
+  
+  const isGraphingEnabled = useGraphingStore((s) => s.isGraphingEnabled);
+  const toggleGraphing = useGraphingStore((s) => s.toggleGraphing);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -321,6 +326,14 @@ export default function PlaygroundLayout({ sessionId }: PlaygroundLayoutProps) {
               minHeight="min-h-[300px] md:min-h-[360px]"
             >
               <div className="w-full max-w-[900px] px-4">
+                {/* Graphing Toggle - Prominent Position */}
+                <div className="mb-4 flex justify-center">
+                  <GraphingToggle 
+                    isEnabled={isGraphingEnabled}
+                    onToggle={toggleGraphing}
+                  />
+                </div>
+                
                 <div className="relative border border-foreground/10 rounded-2xl bg-foreground/5 backdrop-blur-3xl focus-within:border-foreground/20 transition-all duration-300 shadow-2xl group/input min-h-[160px] flex flex-col">
                   <textarea
                     ref={textareaRef}

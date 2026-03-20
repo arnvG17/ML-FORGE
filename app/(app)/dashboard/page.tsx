@@ -101,7 +101,7 @@ function SessionCard({ session }: { session: any }) {
   const isCompiler = session.sessionMode === "compiler";
   const accentColor = isCompiler ? "#f97316" : "#3b82f6";
   const isPublic = session.visibility === "public";
-  const visibilityColor = isPublic ? "#3b82f6" : "#f97316";
+  const visibilityColor = isPublic ? "#22c55e" : "#ef4444"; // Green for public, red for private
 
   return (
     <motion.div
