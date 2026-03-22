@@ -31,7 +31,7 @@ export function Navbar() {
               Compiler
             </Link>
             <Link href="/dashboard" className="text-xs font-mono text-muted hover:text-foreground transition-colors uppercase tracking-widest">
-              Workspace
+              Dashboard
             </Link>
             <Link href="/#pricing" className="text-xs font-mono text-muted hover:text-foreground transition-colors uppercase tracking-widest">
               Pricing
@@ -41,9 +41,9 @@ export function Navbar() {
 
         {/* Wallet address badge */}
         {truncatedWallet && (
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full">
-            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-            <span className="text-[10px] font-mono text-orange-400">
+          <div className="hidden md:flex items-center gap-2 px-2 py-1">
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+            <span className="text-xs font-mono text-muted-foreground/80 hover:text-foreground transition-colors cursor-default">
               {truncatedWallet}
             </span>
           </div>

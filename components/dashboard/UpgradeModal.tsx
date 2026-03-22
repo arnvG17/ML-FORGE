@@ -8,6 +8,7 @@ import { parseEther, formatEther } from "viem";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { checkSubscription, recordSubscriptionPayment, SUBSCRIPTION_AMOUNT, SUBSCRIPTION_DURATION_DAYS } from "@/lib/subscription";
 import { useSearchParams } from "next/navigation";
+import { mutate } from "swr";
 
 const PAYMENT_RECEIVER = (process.env.NEXT_PUBLIC_PAYMENT_RECEIVER || "0x0000000000000000000000000000000000000000") as `0x${string}`;
 
@@ -105,6 +106,7 @@ export function UpgradeModal() {
           });
           setIsPro(true);
           setModalStep("receipt");
+          mutate("/api/subscription");
         })
         .catch((err) => {
           setErrorMsg(err.message || "Failed to record payment");
@@ -178,7 +180,7 @@ export function UpgradeModal() {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-[101] flex items-center justify-center px-4"
           >
-            <div className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden max-h-[90vh] overflow-y-auto">
               {/* Header bar */}
               <div className="h-1 w-full bg-zinc-800" />
 
@@ -278,60 +280,56 @@ export function UpgradeModal() {
                       </div>
 
                       {/* Invoice */}
-                      <div className="bg-white/[0.02] border border-white/5 rounded-xl divide-y divide-white/5 mb-5">
+                      <div className="mb-8 space-y-4">
                         {/* Order Item */}
-                        <div className="p-4 flex items-center justify-between">
+                        <div className="flex items-center justify-between pb-4 border-b border-white/5">
                           <div>
-                            <p className="text-sm font-mono font-semibold text-white">Forge Pro Plan</p>
-                            <p className="text-[10px] font-mono text-zinc-500">{SUBSCRIPTION_DURATION_DAYS}-day subscription</p>
+                            <p className="text-sm font-mono font-semibold text-white tracking-widest uppercase">Forge Pro</p>
+                            <p className="text-[10px] font-mono text-zinc-500 mt-1">{SUBSCRIPTION_DURATION_DAYS}-Day Access</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-mono font-bold text-white">{SUBSCRIPTION_AMOUNT} ETH</p>
+                            <p className="text-lg font-mono text-white">{SUBSCRIPTION_AMOUNT} ETH</p>
                           </div>
                         </div>
 
-                        {/* Network */}
-                        <div className="p-4 flex items-center justify-between">
-                          <span className="text-xs font-mono text-zinc-500">Network</span>
-                          <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-zinc-400" />
-                            Sepolia Testnet
-                          </span>
-                        </div>
+                        {/* Details */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono text-zinc-600">Network</span>
+                            <span className="text-xs font-mono text-zinc-400 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+                              Sepolia
+                            </span>
+                          </div>
 
-                        {/* From */}
-                        <div className="p-4 flex items-center justify-between">
-                          <span className="text-xs font-mono text-zinc-500">From (You)</span>
-                          <span className="text-xs font-mono text-white">{address ? truncateAddress(address) : "Not connected"}</span>
-                        </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono text-zinc-600">From</span>
+                            <span className="text-xs font-mono text-zinc-300">{address ? truncateAddress(address) : "Not connected"}</span>
+                          </div>
 
-                        {/* To */}
-                        <div className="p-4 flex items-center justify-between">
-                          <span className="text-xs font-mono text-zinc-500">To (Forge)</span>
-                          <span className="text-xs font-mono text-zinc-300">{truncateAddress(PAYMENT_RECEIVER)}</span>
-                        </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono text-zinc-600">To</span>
+                            <span className="text-xs font-mono text-zinc-300">{truncateAddress(PAYMENT_RECEIVER)}</span>
+                          </div>
 
-                        {/* Gas */}
-                        <div className="p-4 flex items-center justify-between">
-                          <span className="text-xs font-mono text-zinc-500">Est. Gas Fee</span>
-                          <span className="text-xs font-mono text-zinc-400">
-                            {gasEstimateEth
-                              ? `~${parseFloat(gasEstimateEth).toFixed(6)} ETH`
-                              : <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-zinc-600 border-t-zinc-400 animate-spin rounded-full" />Estimating...</span>
-                            }
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-mono text-zinc-600">Est. Gas</span>
+                            <span className="text-xs font-mono text-zinc-400">
+                              {gasEstimateEth
+                                ? `~${parseFloat(gasEstimateEth).toFixed(6)} ETH`
+                                : <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-zinc-600 border-t-zinc-400 animate-spin rounded-full" /></span>
+                              }
+                            </span>
+                          </div>
                         </div>
 
                         {/* Total */}
-                        <div className="p-4 flex items-center justify-between bg-white/[0.02]">
-                          <span className="text-sm font-mono font-bold text-white">Total (est.)</span>
+                        <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                          <span className="text-sm font-mono text-zinc-400">Total</span>
                           <div className="text-right">
-                            <span className="text-lg font-mono font-bold text-white">
+                            <span className="text-lg font-mono text-white">
                               {totalEstimateEth ? `${totalEstimateEth} ETH` : `${SUBSCRIPTION_AMOUNT} ETH + gas`}
                             </span>
-                            {gasEstimateEth && (
-                              <p className="text-[9px] font-mono text-zinc-600 mt-0.5">{SUBSCRIPTION_AMOUNT} + {parseFloat(gasEstimateEth).toFixed(6)} gas</p>
-                            )}
                           </div>
                         </div>
                       </div>

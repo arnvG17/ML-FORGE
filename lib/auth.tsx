@@ -151,7 +151,7 @@ export function ForgeUserButton() {
         onClick={() => setIsOpen(!isOpen)}
         className={`w-8 h-8 rounded-full overflow-hidden border-2 flex items-center justify-center bg-surface transition-all duration-200 shadow-sm ${
           isPro 
-            ? "border-emerald-500 ring-2 ring-emerald-500/20 hover:ring-emerald-500/40" 
+            ? "border-amber-500 ring-2 ring-amber-500/30 hover:ring-amber-500/60" 
             : "border-white/10 hover:border-primary/50 hover:ring-2 hover:ring-primary/20"
         }`}
       >
@@ -172,14 +172,14 @@ export function ForgeUserButton() {
               <p className="text-xs text-muted truncate">{email}</p>
             </div>
             {isPro && (
-              <div className="px-4 py-3 flex flex-col gap-2 bg-emerald-500/5">
+              <div className="px-4 py-3 flex flex-col gap-2 bg-amber-500/5">
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <svg className="w-2.5 h-2.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <div className="w-4 h-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <svg className="w-2.5 h-2.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <span className="text-xs font-mono font-bold text-emerald-400">Pro mode activated</span>
+                  <span className="text-xs font-mono font-bold text-amber-500">Pro mode activated</span>
                 </div>
                 {sub.txHash && (
                   <a 

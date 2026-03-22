@@ -56,15 +56,16 @@ const plans = [
   },
 ];
 
-export default function PricingSection() {
+export default function PricingSection({ redirectUrl }: { redirectUrl?: string } = {}) {
   const router = useRouter();
   const { user } = useAuth();
 
   const handleCtaClick = (plan: typeof plans[0]) => {
     if (plan.name === "Free") {
-      router.push(user ? "/playground" : "/sign-in?redirect=/playground");
+      const target = redirectUrl || "/dashboard";
+      router.push(user ? target : `/sign-in?redirect=${encodeURIComponent(target)}`);
     } else {
-      router.push(user ? "/dashboard?upgrade=true" : "/sign-in?redirect=/dashboard?upgrade=true");
+      router.push(user ? "/dashboard?upgrade=true" : `/sign-in?redirect=${encodeURIComponent("/dashboard?upgrade=true")}`);
     }
   };
 

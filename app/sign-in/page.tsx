@@ -22,8 +22,8 @@ function LoginContent() {
   const { openConnectModal } = useConnectModal();
   const { signMessageAsync } = useSignMessage();
 
-  const redirect = searchParams.get("redirect") || "/dashboard";
-
+  const targetUrl = searchParams.get("redirect") || "/dashboard";
+  const redirect = `/pricing?redirect=${encodeURIComponent(targetUrl)}`;
   // If already signed in, redirect
   if (!loading && user) {
     router.replace(redirect);
