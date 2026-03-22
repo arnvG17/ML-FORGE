@@ -91,7 +91,8 @@ export function UpgradeModal() {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed && txHash && processingPhase === "chain") {
+    // If we have txHash, optimistic UI update without waiting for on-chain confirmation
+    if (txHash && processingPhase === "chain") {
       setProcessingPhase("recording");
       recordSubscriptionPayment(txHash)
         .then((result) => {
@@ -110,7 +111,7 @@ export function UpgradeModal() {
           setModalStep("billing");
         });
     }
-  }, [isConfirmed, txHash, processingPhase]);
+  }, [txHash, processingPhase]);
 
   // Track send → confirming transition
   useEffect(() => {
@@ -178,8 +179,8 @@ export function UpgradeModal() {
             className="fixed inset-0 z-[101] flex items-center justify-center px-4"
           >
             <div className="w-full max-w-md bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl shadow-primary/10 overflow-hidden max-h-[90vh] overflow-y-auto">
-              {/* Header gradient bar */}
-              <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" />
+              {/* Header bar */}
+              <div className="h-1 w-full bg-zinc-800" />
 
               {/* Step indicator */}
               <div className="px-8 pt-6 pb-2">
@@ -192,14 +193,14 @@ export function UpgradeModal() {
                     return (
                       <div key={label} className="flex items-center gap-1 flex-1">
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold border transition-all duration-300 ${
-                          isDone ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" :
-                          isActive ? "bg-primary/20 border-primary/50 text-primary" :
-                          "bg-white/5 border-white/10 text-zinc-600"
+                          isDone ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400" :
+                          isActive ? "bg-white text-black border-white" :
+                          "bg-zinc-900 border-zinc-800 text-zinc-500"
                         }`}>
                           {isDone ? "✓" : i + 1}
                         </div>
                         <span className={`text-[9px] font-mono uppercase tracking-wider ${
-                          isActive ? "text-primary" : isDone ? "text-emerald-400/70" : "text-zinc-600"
+                          isActive ? "text-white" : isDone ? "text-emerald-400/70" : "text-zinc-600"
                         }`}>{label}</span>
                         {i < 3 && <div className={`flex-1 h-px mx-1 ${isDone ? "bg-emerald-500/30" : "bg-white/5"}`} />}
                       </div>
@@ -226,9 +227,9 @@ export function UpgradeModal() {
                   {modalStep === "plan" && (
                     <motion.div key="plan" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.2 }}>
                       <div className="text-center mb-6">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full mb-4">
-                          <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                          <span className="text-[10px] font-mono text-primary uppercase tracking-widest">Upgrade Available</span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full mb-4">
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                          <span className="text-[10px] font-mono text-white uppercase tracking-widest">Upgrade Available</span>
                         </div>
                         <h3 className="font-comico text-3xl text-white tracking-tight">Unlock Full Power</h3>
                         <p className="text-sm font-mono text-zinc-500 mt-2">Get unlimited AI generations, advanced models, and more.</p>
@@ -257,7 +258,7 @@ export function UpgradeModal() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={handleProceedToCheckout}
-                        className="w-full py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/25 flex items-center justify-center gap-2"
+                        className="w-full py-4 rounded-xl bg-white text-black font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:bg-zinc-200 flex items-center justify-center gap-2 border border-white"
                       >
                         {isConnected ? "Proceed to Checkout →" : "Connect Wallet to Continue"}
                       </motion.button>
@@ -293,7 +294,7 @@ export function UpgradeModal() {
                         <div className="p-4 flex items-center justify-between">
                           <span className="text-xs font-mono text-zinc-500">Network</span>
                           <span className="text-xs font-mono text-zinc-300 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-purple-400" />
+                            <span className="w-2 h-2 rounded-full bg-zinc-400" />
                             Sepolia Testnet
                           </span>
                         </div>
@@ -301,7 +302,7 @@ export function UpgradeModal() {
                         {/* From */}
                         <div className="p-4 flex items-center justify-between">
                           <span className="text-xs font-mono text-zinc-500">From (You)</span>
-                          <span className="text-xs font-mono text-cyan-400">{address ? truncateAddress(address) : "Not connected"}</span>
+                          <span className="text-xs font-mono text-white">{address ? truncateAddress(address) : "Not connected"}</span>
                         </div>
 
                         {/* To */}
@@ -369,7 +370,7 @@ export function UpgradeModal() {
                           whileTap={{ scale: isZeroAddress ? 1 : 0.98 }}
                           onClick={handleConfirmPay}
                           disabled={isZeroAddress}
-                          className="flex-[2] py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/25 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          className="flex-[2] py-3.5 rounded-xl bg-white text-black font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:bg-zinc-200 disabled:opacity-40 flex items-center justify-center gap-2 border border-white"
                         >
                           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
                             <path d="M12 2L2 7l10 5 10-5-10-5z" fill="currentColor" opacity={0.3}/>
@@ -402,30 +403,30 @@ export function UpgradeModal() {
                           const isDone = itemIdx < currentIdx;
                           return (
                             <div key={item.phase} className={`flex items-start gap-4 p-4 rounded-xl border transition-all duration-500 ${
-                              isActive ? "bg-primary/5 border-primary/20" :
+                              isActive ? "bg-zinc-900 border-zinc-700" :
                               isDone ? "bg-emerald-500/5 border-emerald-500/20" :
-                              "bg-white/[0.01] border-white/5"
+                              "bg-zinc-950 border-zinc-900"
                             }`}>
                               <div className="mt-0.5">
                                 {isDone ? (
-                                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                  <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
                                     <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
                                   </div>
                                 ) : isActive ? (
-                                  <div className="w-6 h-6 border-2 border-primary/30 border-t-primary animate-spin rounded-full" />
+                                  <div className="w-6 h-6 border-2 border-zinc-600 border-t-white animate-spin rounded-full" />
                                 ) : (
-                                  <div className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-mono text-zinc-600">
+                                  <div className="w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-mono text-zinc-600">
                                     {i + 1}
                                   </div>
                                 )}
                               </div>
                               <div>
-                                <p className={`text-sm font-mono font-medium ${isActive ? "text-primary" : isDone ? "text-emerald-400" : "text-zinc-600"}`}>
+                                <p className={`text-sm font-mono font-medium ${isActive ? "text-white" : isDone ? "text-emerald-400" : "text-zinc-600"}`}>
                                   {item.label}
                                 </p>
-                                <p className={`text-[10px] font-mono ${isActive ? "text-primary/60" : isDone ? "text-emerald-400/50" : "text-zinc-700"}`}>
+                                <p className={`text-[10px] font-mono ${isActive ? "text-zinc-400" : isDone ? "text-emerald-400/50" : "text-zinc-700"}`}>
                                   {item.desc}
                                 </p>
                               </div>
@@ -437,7 +438,7 @@ export function UpgradeModal() {
                       {txHash && (
                         <div className="text-center">
                           <p className="text-[10px] font-mono text-zinc-600">
-                            Tx: <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-primary/60 hover:text-primary underline underline-offset-2">{truncateAddress(txHash)}</a>
+                            Tx: <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white underline underline-offset-2 transition-colors">{truncateAddress(txHash)}</a>
                           </p>
                         </div>
                       )}
@@ -481,7 +482,7 @@ export function UpgradeModal() {
                         </div>
                         <div className="p-4 flex items-center justify-between">
                           <span className="text-xs font-mono text-zinc-500">Plan</span>
-                          <span className="text-xs font-mono text-cyan-400 font-bold">Pro</span>
+                          <span className="text-xs font-mono text-white font-bold">Pro</span>
                         </div>
                         <div className="p-4 flex items-center justify-between">
                           <span className="text-xs font-mono text-zinc-500">Valid Until</span>
@@ -493,7 +494,7 @@ export function UpgradeModal() {
                             href={`https://sepolia.etherscan.io/tx/${receiptData.txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-mono text-primary hover:text-primary/80 underline underline-offset-2"
+                            className="text-xs font-mono text-zinc-400 hover:text-white underline underline-offset-2 transition-colors"
                           >
                             {truncateAddress(receiptData.txHash)}
                           </a>
@@ -516,7 +517,7 @@ export function UpgradeModal() {
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={handleClose}
-                          className="flex-[2] py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/25"
+                          className="flex-[2] py-3.5 rounded-xl bg-emerald-500 text-black font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:bg-emerald-400"
                         >
                           Start Building →
                         </motion.button>

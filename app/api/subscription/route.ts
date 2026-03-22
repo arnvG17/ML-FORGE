@@ -1,28 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth-server";
-import { getAdminAuth } from "@/lib/firebase-admin";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
-
-function getDb() {
-  // Ensure firebase-admin is initialized
-  if (!getApps().length) {
-    const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error("Missing FIREBASE_ADMIN_* env vars");
-    }
-    initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey: privateKey.replace(/\\n/g, "\n"),
-      }),
-    });
-  }
-  return getFirestore();
-}
+import { getCollection } from "@/lib/mongodb";
 
 /**
  * GET /api/subscription — check current user's subscription status
@@ -34,23 +12,22 @@ export async function GET() {
       return NextResponse.json({ active: false, plan: "free" });
     }
 
-    const db = getDb();
-    const doc = await db.collection("subscriptions").doc(userId).get();
+    const subscriptions = await getCollection("subscriptions");
+    const doc = await subscriptions.findOne({ userId });
 
-    if (!doc.exists) {
+    if (!doc) {
       return NextResponse.json({ active: false, plan: "free" });
     }
 
-    const data = doc.data()!;
     const now = Date.now();
-    const isActive = data.expiresAt && data.expiresAt > now;
+    const isActive = doc.expiresAt && doc.expiresAt > now;
 
     return NextResponse.json({
       active: isActive,
       plan: isActive ? "pro" : "free",
-      txHash: data.txHash || null,
-      paidAt: data.paidAt || null,
-      expiresAt: data.expiresAt || null,
+      txHash: doc.txHash || null,
+      paidAt: doc.paidAt || null,
+      expiresAt: doc.expiresAt || null,
     });
   } catch (error: any) {
     console.error("[subscription] GET error:", error);
@@ -80,23 +57,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // For MVP on Sepolia testnet, we trust the txHash from the client.
-    // In production, you'd verify the transaction on-chain:
-    // - Check that the tx exists and is confirmed
-    // - Check that it sent the correct amount to the correct address
-    // - Check that it hasn't been used before
-
     const now = Date.now();
     const thirtyDays = 30 * 24 * 60 * 60 * 1000;
 
-    const db = getDb();
-    await db.collection("subscriptions").doc(userId).set({
-      active: true,
-      txHash,
-      paidAt: now,
-      expiresAt: now + thirtyDays,
-      userId,
-    });
+    const subscriptions = await getCollection("subscriptions");
+    
+    await subscriptions.updateOne(
+      { userId },
+      {
+        $set: {
+          active: true,
+          txHash,
+          paidAt: now,
+          expiresAt: now + thirtyDays,
+          userId,
+        }
+      },
+      { upsert: true }
+    );
 
     return NextResponse.json({
       active: true,
