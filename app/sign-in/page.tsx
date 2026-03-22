@@ -2,19 +2,27 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signInWithGoogle, useAuth } from "@/lib/auth";
+import { signInWithGoogle, signInWithWallet, useAuth } from "@/lib/auth";
 import { HeroDitheringCard } from "@/components/ui/hero-dithering-card";
 import { motion } from "framer-motion";
 import { Suspense } from "react";
+import { useAccount, useSignMessage } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { generateNonce, createSIWEMessage, verifyWalletSignature } from "@/lib/web3-auth";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isWalletSigningIn, setIsWalletSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const redirect = searchParams.get("redirect") || "/compiler";
+  const { address, isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const { signMessageAsync } = useSignMessage();
+
+  const redirect = searchParams.get("redirect") || "/dashboard";
 
   // If already signed in, redirect
   if (!loading && user) {
@@ -31,12 +39,54 @@ function LoginContent() {
     } catch (err: any) {
       console.error("Sign-in error:", err);
       if (err.code === "auth/popup-closed-by-user") {
-        setError(null); // User just closed the popup, not a real error
+        setError(null);
       } else {
         setError(err.message || "Sign-in failed. Please try again.");
       }
     } finally {
       setIsSigningIn(false);
+    }
+  };
+
+  const handleWalletSignIn = async () => {
+    setIsWalletSigningIn(true);
+    setError(null);
+    try {
+      if (!isConnected || !address) {
+        openConnectModal?.();
+        setIsWalletSigningIn(false);
+        return;
+      }
+
+      // Create SIWE message and sign it
+      const nonce = generateNonce();
+      const message = createSIWEMessage(address, nonce);
+      const signature = await signMessageAsync({ message });
+
+      // Verify on server and get Firebase custom token
+      const { customToken } = await verifyWalletSignature(address, message, signature);
+
+      // Sign in to Firebase with the custom token
+      await signInWithWallet(customToken);
+      router.replace(redirect);
+    } catch (err: any) {
+      console.error("Wallet sign-in error:", err);
+      if (err.message?.includes("User rejected")) {
+        setError(null);
+      } else {
+        setError(err.message || "Wallet sign-in failed. Please try again.");
+      }
+    } finally {
+      setIsWalletSigningIn(false);
+    }
+  };
+
+  // Auto-trigger SIWE after wallet connects
+  const handleConnectAndSign = async () => {
+    if (isConnected && address) {
+      await handleWalletSignIn();
+    } else {
+      openConnectModal?.();
     }
   };
 
@@ -57,7 +107,7 @@ function LoginContent() {
 
       {/* Right Area - Sign In */}
       <div className="flex-1 flex flex-col items-center justify-center bg-black p-8 relative z-0">
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-sm space-y-6">
           {/* Header */}
           <div className="text-center space-y-3">
             <h1 className="font-comico text-5xl tracking-tight text-white">
@@ -68,7 +118,43 @@ function LoginContent() {
             </p>
           </div>
 
-          {/* Sign In Button */}
+          {/* MetaMask / Wallet Button */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleConnectAndSign}
+            disabled={isWalletSigningIn || loading}
+            className="w-full flex items-center justify-center gap-3 h-14 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-mono font-semibold text-sm tracking-wide transition-all duration-200 hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isWalletSigningIn ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+                  <path d="M20.5 4L12.5 10l1.5-3.5L20.5 4z" fill="#E17726" stroke="#E17726" strokeWidth="0.25"/>
+                  <path d="M3.5 4l7.9 6.1L10 6.5 3.5 4z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M17.5 17.5l-2 3 4.3 1.2 1.2-4.2-3.5 0z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M3 17.5l1.2 4.2L8.5 20.5l-2-3H3z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M8.3 10.5L7 12.5l4.3.2-.1-4.7-2.9 2.5z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M15.7 10.5l-3-2.6-.2 4.8 4.3-.2-1.1-2z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M8.5 20.5l2.6-1.3-2.2-1.7-.4 3z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                  <path d="M12.9 19.2l2.6 1.3-.4-3-2.2 1.7z" fill="#E27625" stroke="#E27625" strokeWidth="0.25"/>
+                </svg>
+                {isConnected ? "Sign with MetaMask" : "Connect with MetaMask"}
+              </>
+            )}
+          </motion.button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4">
+            <div className="h-px flex-1 bg-white/10" />
+            <span className="text-[10px] font-mono text-zinc-600 uppercase tracking-widest">
+              or
+            </span>
+            <div className="h-px flex-1 bg-white/10" />
+          </div>
+
+          {/* Google Sign In Button */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -127,7 +213,7 @@ function LoginContent() {
           <p className="text-center text-[10px] font-mono text-zinc-700 leading-relaxed">
             By signing in, you agree to use FORGE responsibly.
             <br />
-            Powered by Firebase Authentication.
+            Powered by Firebase + Ethereum.
           </p>
         </div>
       </div>

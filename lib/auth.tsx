@@ -15,6 +15,7 @@ import { getFirebaseAuth, getGoogleProvider } from "@/lib/firebase";
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithCustomToken,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
@@ -23,11 +24,13 @@ import {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  walletAddress: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
+  walletAddress: null,
 });
 
 // ─── Session Cookie Helpers ────────────────────────────────────────────────
@@ -44,6 +47,7 @@ async function syncSessionCookie(user: User | null) {
 export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
   useEffect(() => {
     const firebaseAuth = getFirebaseAuth();
@@ -55,6 +59,12 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
       setLoading(false);
       await syncSessionCookie(firebaseUser);
+      // Extract wallet address from UID if it's a wallet user
+      if (firebaseUser?.uid?.startsWith("wallet_")) {
+        setWalletAddress(firebaseUser.uid.replace("wallet_", ""));
+      } else {
+        setWalletAddress(null);
+      }
     });
     return () => unsub();
   }, []);
@@ -72,7 +82,7 @@ export function FirebaseAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, walletAddress }}>
       {children}
     </AuthContext.Provider>
   );
@@ -93,6 +103,14 @@ export async function signInWithGoogle() {
   const firebaseAuth = getFirebaseAuth();
   const provider = getGoogleProvider();
   const result = await signInWithPopup(firebaseAuth, provider);
+  const token = await result.user.getIdToken();
+  document.cookie = `__session=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+  return result.user;
+}
+
+export async function signInWithWallet(customToken: string) {
+  const firebaseAuth = getFirebaseAuth();
+  const result = await signInWithCustomToken(firebaseAuth, customToken);
   const token = await result.user.getIdToken();
   document.cookie = `__session=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
   return result.user;

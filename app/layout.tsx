@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 import { FirebaseAuthProvider } from "@/lib/auth";
+import { Web3Provider } from "@/components/Web3Provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthToast } from "@/components/layout/AuthToast";
 
@@ -43,10 +44,12 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <FirebaseAuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            {children}
-            <AuthToast />
-          </ThemeProvider>
+          <Web3Provider>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              {children}
+              <AuthToast />
+            </ThemeProvider>
+          </Web3Provider>
         </FirebaseAuthProvider>
       </body>
     </html>

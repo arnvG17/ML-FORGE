@@ -9,6 +9,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { MoreVertical, Edit2, Globe, Lock, Trash2, Check, X, Heart, MessageSquare, Star, Send } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
+import { UpgradeModal } from "@/components/dashboard/UpgradeModal";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -655,6 +656,8 @@ export default function DashboardPage() {
           />
         )}
       </AnimatePresence>
+
+      <UpgradeModal />
     </div>
   );
 }
