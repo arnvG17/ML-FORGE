@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MoreVertical, Edit2, Globe, Lock, Trash2, Check, X, Heart, MessageSquare, Star, Send } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { UpgradeModal } from "@/components/dashboard/UpgradeModal";
+import { Suspense } from "react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -491,7 +492,7 @@ function SocialModal({ session, onClose, onUpdate }: { session: any, onClose: ()
   );
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"sessions" | "community">("sessions");
   const [searchQuery, setSearchQuery] = useState("");
@@ -659,5 +660,13 @@ export default function DashboardPage() {
 
       <UpgradeModal />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center text-zinc-600 font-mono text-xs">Loading Dashboard...</div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
